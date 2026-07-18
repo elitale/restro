@@ -169,6 +169,7 @@ model Restaurant {
   tables         DiningTable[]
   images         RestaurantImage[]
   videos         RestaurantVideo[]
+  stockItems     StockItem[]
 
   @@index([ownerId])
   @@index([isActive])
@@ -269,6 +270,7 @@ model MenuItem {
   disables       MenuItemAvailability[]
   variants       MenuItemVariant[]
   modifierGroups MenuItemModifierGroup[]
+  recipe         RecipeComponent[]
 
   @@index([restaurantId])
   @@index([categoryId])
@@ -493,4 +495,88 @@ model Payment {
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
+}
+
+enum StockUnit {
+  KG
+  GRAM
+  LITRE
+  ML
+  PIECE
+  PACK
+  BOTTLE
+  DOZEN
+}
+
+enum StockMovementType {
+  RECEIVE
+  WASTE
+  CORRECTION
+  SALE_DEPLETION
+}
+
+/// An inventory item the restaurant stocks. On-hand is the running total of
+/// typed StockMovements — never edited directly. Soft-deleted.
+model StockItem {
+  id           String    @id @default(cuid())
+  restaurantId String
+  name         String
+  unit         StockUnit
+  category     String?
+  onHand       Decimal   @default(0) @db.Decimal(12, 3)
+  reorderLevel Decimal?  @db.Decimal(12, 3)
+  parLevel     Decimal?  @db.Decimal(12, 3)
+  costPerUnit  Decimal?  @db.Decimal(12, 2)
+  supplier     String?
+  notes        String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  restaurant Restaurant        @relation(fields: [restaurantId], references: [id])
+  movements  StockMovement[]
+  usedIn     RecipeComponent[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId])
+}
+
+/// An audited change to a StockItem's on-hand. Manual RECEIVE/WASTE/CORRECTION
+/// or SALE_DEPLETION (order placed = negative, void = positive).
+model StockMovement {
+  id              String            @id @default(cuid())
+  restaurantId    String
+  stockItemId     String
+  type            StockMovementType
+  quantity        Decimal           @db.Decimal(12, 3)
+  resultingOnHand Decimal           @db.Decimal(12, 3)
+  reason          String?
+  note            String?
+  orderId         String?
+  createdById     String
+  createdAt       DateTime          @default(now())
+
+  stockItem StockItem @relation(fields: [stockItemId], references: [id])
+
+  @@index([stockItemId])
+  @@index([restaurantId, createdAt])
+  @@index([orderId])
+}
+
+/// One ingredient line of a MenuItem's recipe. quantity is in the stock item's
+/// unit. Placing an order depletes these; voiding restores them.
+model RecipeComponent {
+  id          String   @id @default(cuid())
+  menuItemId  String
+  stockItemId String
+  quantity    Decimal  @db.Decimal(12, 3)
+  createdAt   DateTime @default(now())
+
+  menuItem  MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  stockItem StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, stockItemId])
+  @@index([menuItemId])
+  @@index([stockItemId])
 }

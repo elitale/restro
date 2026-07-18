@@ -70,8 +70,19 @@ Upgraded `/dashboard/settings` from a lone GST card into a full **restaurant pro
 
 ---
 
-## Current Codebase State (2026-07-18)
+## Inventory (2026-07-19) — COMPLETE
 
+Manual stock log + **recipe/BOM auto-depletion** (plan: `.plan/inventory.md`, planned with buyer + staff agents). Agents' spine: on-hand is a **running total of typed movements, never directly editable**; **bulk grids** are the adoption decider; auto-depletion **never blocks a sale** (on-hand may go negative). Owner chose the fuller build (recipes IN v1).
+
+- **Schema (`add_inventory` migration):** `StockUnit` + `StockMovementType` (RECEIVE/WASTE/CORRECTION/SALE_DEPLETION) enums; `StockItem` (name, unit, category?, `onHand` Decimal(12,3), reorder/par/cost?, supplier free-text, soft-delete, unique `[restaurantId,name]`); `StockMovement` (signed `quantity` + `resultingOnHand` snapshot, reason/note, `orderId?`, `createdById`); `RecipeComponent` (`MenuItem`↔`StockItem`, qty in stock unit, unique `[menuItemId,stockItemId]`).
+- **Layers:** `stock.repository` (`applyMovement`/`applyMovements` = atomic `increment` + movement in `$transaction`; `applyCounts` = set-to-counted CORRECTION); `stock.service` (CRUD w/ opening-stock movement + name-revive, receive/waste/bulk/count, `getLowStockCount`, `mapStock.isLow`); `recipe.repository`/`recipe.service` (`getRecipe`/`setRecipeComponent`/`removeRecipeComponent`/`listRecipes` grouped/`getRecipesMap`); `stock-depletion.service` (`depleteForLines`/`restoreForLines` aggregate recipe×qty). **`order.service` integration:** create/add-items → deplete; void-line/void-order → restore — all `.catch(() => undefined)` (best-effort, never blocks the order). `inventory.actions` + `recipe.actions`.
+- **UI:** `/dashboard/inventory` (`inventory-manager` grouped by category + low badge; `stock-item-dialog`, `adjust-dialog` receive/waste + reason chips, `bulk-receive-dialog` grid, `count-dialog` grid) + history route `/dashboard/inventory/[id]`. **Recipe editor:** a "Recipe" action per item in the **menu manager** → `recipe-dialog` (menu page now also fetches `listStock` + `listRecipes`). **Dashboard** shows an amber "N items low" banner → inventory. Sidebar **Inventory** wired.
+- **Tests:** 268 pass (was 241). tsc + eslint clean. New specs: stock repo ($transaction mock), stock service, recipe service, depletion service, inventory + recipe actions; order.service extended (mock depletion).
+- **Deferred:** suppliers-as-entities + purchase orders + goods-receipt, variance reports, multi-outlet transfers, per-variant/modifier recipes, unit conversion (purchase≠stock unit), batch/expiry, stock→menu-86 auto-block.
+
+---
+
+## Current Codebase State (2026-07-18)
 - `src/app/` — root `layout.tsx`/`page.tsx`/`globals.css`; `login/` (phone-first login); **`admin/`** — `layout.tsx` (admin-gated), `page.tsx` (overview), `users/`, `restaurants/` (+ `new/` onboard)
 - `src/proxy.ts` — Next 16 Proxy: optimistic auth gate; unauthenticated → `/login`
 - `src/actions/` — `helpers.ts` (`withValidation`, `withAdminValidation`), `restaurant.actions.ts` (+ specs)

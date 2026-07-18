@@ -32,7 +32,7 @@ const navMain = [
   { title: "Orders", url: "/dashboard/orders", icon: <ReceiptTextIcon /> },
   { title: "Menu", url: "/dashboard/menu", icon: <BookOpenIcon /> },
   { title: "Tables", url: "/dashboard/tables", icon: <ArmchairIcon /> },
-  { title: "Inventory", url: "#", icon: <BoxesIcon /> },
+  { title: "Inventory", url: "/dashboard/inventory", icon: <BoxesIcon /> },
 ]
 
 const navSecondary = [

@@ -5,6 +5,10 @@ import type { MenuDTO } from "@/types/menu";
 
 vi.mock("@/services/menu-item.service", () => ({ getMenu: vi.fn() }));
 vi.mock("@/services/table.service", () => ({ resolveTableForOrder: vi.fn() }));
+vi.mock("@/services/stock-depletion.service", () => ({
+  depleteForLines: vi.fn(() => Promise.resolve()),
+  restoreForLines: vi.fn(() => Promise.resolve()),
+}));
 vi.mock("@/repositories/order.repository", () => ({
   addOrderItems: vi.fn(),
   createOrder: vi.fn(),

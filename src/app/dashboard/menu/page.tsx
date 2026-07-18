@@ -5,6 +5,8 @@ import { getManagerContextOrNull } from "@/lib/manager-auth"
 import { findRestaurantById } from "@/repositories/restaurant.repository"
 import { getMenu } from "@/services/menu-item.service"
 import { listModifierGroups } from "@/services/modifier.service"
+import { listRecipes } from "@/services/recipe.service"
+import { listStock } from "@/services/stock.service"
 
 export default async function MenuPage() {
   const ctx = await getManagerContextOrNull()
@@ -23,10 +25,12 @@ export default async function MenuPage() {
     )
   }
 
-  const [menu, groups, restaurant] = await Promise.all([
+  const [menu, groups, restaurant, stockItems, recipes] = await Promise.all([
     getMenu(ctx.restaurantId),
     listModifierGroups(ctx.restaurantId),
     findRestaurantById(ctx.restaurantId),
+    listStock(ctx.restaurantId),
+    listRecipes(ctx.restaurantId),
   ])
 
   return (
@@ -34,6 +38,8 @@ export default async function MenuPage() {
       menu={menu}
       groups={groups}
       gstRegistered={restaurant?.gstRegistrationType !== "UNREGISTERED"}
+      stockItems={stockItems.filter((s) => s.isActive)}
+      recipes={recipes}
     />
   )
 }

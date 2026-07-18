@@ -21,6 +21,10 @@ import {
 } from "@/repositories/order.repository";
 import type { BillLineInput } from "@/services/billing";
 import { getMenu } from "@/services/menu-item.service";
+import {
+  depleteForLines,
+  restoreForLines,
+} from "@/services/stock-depletion.service";
 import { resolveTableForOrder } from "@/services/table.service";
 import type { MenuDTO } from "@/types/menu";
 import type { OrderDTO } from "@/types/order";
@@ -207,6 +211,11 @@ export const createOrder = async (
     placedById: ctx.userId,
     items,
   });
+  await depleteForLines(
+    ctx,
+    input.items.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity })),
+    order.id,
+  ).catch(() => undefined);
   return mapOrder(order);
 };
 
@@ -221,6 +230,11 @@ export const addItems = async (
   const menu = await getMenu(ctx.restaurantId);
   const items = snapshotLines(menu, input.items, order.items.length, "UNSENT");
   const updated = await addOrderItems(input.orderId, items);
+  await depleteForLines(
+    ctx,
+    input.items.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity })),
+    input.orderId,
+  ).catch(() => undefined);
   return mapOrder(updated);
 };
 
@@ -255,8 +269,18 @@ export const voidLine = async (
   input: VoidLineInput,
 ): Promise<void> => {
   const order = await loadOwnedOrder(ctx.restaurantId, input.orderId);
-  assertLineOnOrder(order, input.itemId);
+  const line = order.items.find((i) => i.id === input.itemId);
+  if (!line) {
+    throw new Error(ORDER_ITEM_NOT_FOUND);
+  }
   await setLineState(input.itemId, "VOID", input.reason);
+  if (line.state !== "VOID") {
+    await restoreForLines(
+      ctx,
+      [{ menuItemId: line.menuItemId, quantity: line.quantity }],
+      order.id,
+    ).catch(() => undefined);
+  }
 };
 
 export const voidWholeOrder = async (
@@ -268,6 +292,13 @@ export const voidWholeOrder = async (
     throw new Error(ORDER_NOT_OPEN);
   }
   await voidOrderRepo(input.orderId, ctx.userId, input.reason);
+  await restoreForLines(
+    ctx,
+    order.items
+      .filter((i) => i.state !== "VOID")
+      .map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+    input.orderId,
+  ).catch(() => undefined);
 };
 
 export const listOrders = async (

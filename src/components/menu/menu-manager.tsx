@@ -35,11 +35,13 @@ import type {
   MenuItemDTO,
   MenuModifierGroupDTO,
 } from "@/types/menu"
+import type { RecipeComponentDTO, StockItemDTO } from "@/types/inventory"
 
 import { CategoryDialog } from "./category-dialog"
 import { EightySixDialog } from "./eighty-six-dialog"
 import { ItemDialog } from "./item-dialog"
 import { ModifierGroupsDialog } from "./modifier-groups-dialog"
+import { RecipeDialog } from "./recipe-dialog"
 
 const money = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -65,10 +67,14 @@ export function MenuManager({
   menu,
   groups,
   gstRegistered,
+  stockItems,
+  recipes,
 }: {
   menu: MenuDTO
   groups: readonly MenuModifierGroupDTO[]
   gstRegistered: boolean
+  stockItems: readonly StockItemDTO[]
+  recipes: Record<string, readonly RecipeComponentDTO[]>
 }) {
   const router = useRouter()
   const refresh = () => router.refresh()
@@ -86,6 +92,7 @@ export function MenuManager({
     open: boolean
     item: MenuItemDTO | null
   }>({ open: false, item: null })
+  const [recipeItem, setRecipeItem] = useState<MenuItemDTO | null>(null)
 
   const deleteCategory = useServerAction(deleteCategoryAction, {
     onSuccess: () => {
@@ -204,6 +211,7 @@ export function MenuManager({
                         onReenable={() =>
                           reenable.execute({ itemId: item.id })
                         }
+                        onRecipe={() => setRecipeItem(item)}
                       />
                     ))}
                   </div>
@@ -249,6 +257,14 @@ export function MenuManager({
           onSaved={refresh}
         />
       ) : null}
+      {recipeItem ? (
+        <RecipeDialog
+          item={recipeItem}
+          components={recipes[recipeItem.id] ?? []}
+          stockItems={stockItems}
+          onOpenChange={(open) => !open && setRecipeItem(null)}
+        />
+      ) : null}
       <Toaster />
     </div>
   )
@@ -260,12 +276,14 @@ function ItemCard({
   onDelete,
   on86,
   onReenable,
+  onRecipe,
 }: {
   item: MenuItemDTO
   onEdit: () => void
   onDelete: () => void
   on86: () => void
   onReenable: () => void
+  onRecipe: () => void
 }) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3">
@@ -329,6 +347,9 @@ function ItemCard({
             Available again
           </Button>
         )}
+        <Button variant="ghost" size="sm" onClick={onRecipe}>
+          Recipe
+        </Button>
         <Button
           variant="ghost"
           size="icon-sm"
