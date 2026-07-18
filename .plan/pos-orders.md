@@ -2,7 +2,7 @@
 
 > Planned with the **buyer** (6 owner personas) and **staff** (5 floor/kitchen personas) agents.
 > Builds on the existing **Menu** (items, variants, modifiers, GST model). Layered (UI → Actions → Services → Repositories → DB), TDD-first.
-> **Status: PLAN — awaiting confirmation before implementation.**
+> **Status: SHIPPED (2026-07-18).** POS + Orders + billing/settlement + KOT/invoice live. 193 tests pass. See `MEMORY.md` → "POS & Orders" for the as-built summary.
 
 ---
 
@@ -27,7 +27,8 @@ Both agents were emphatic: **don't boil the ocean.** "Dine-in tabs + takeaway + 
 - **Snapshots:** every order line snapshots name/variant/unit price/tax rate/modifiers at order time, so later menu edits never change a historical bill.
 - **KOT ≠ Invoice:** KOT = kitchen ticket (items, variant, modifiers, **note**, table/round — **no prices**), printed on fire. **Tax Invoice** = priced, GST-itemized (CGST/SGST split), **sequential gap-free invoice number**, GSTIN, round-off — printed at settle. Reprints marked **DUPLICATE**.
 - **GST:** reuse the existing `resolveItemTax` logic; a pure `computeBill()` produces line taxes + totals + round-off from the snapshots. Service charge is **not** in the GST base (India). Tax-inclusive handled.
-- **Payments:** **cash** (tendered/change) + **UPI** (mark-paid + optional ref) + **card** (mark only, no PSP integration). Model holds **multiple tenders** per bill from day one (split-tender UI can land in v1.1).
+- **Payments:** **cash** (tendered/change) + **UPI** (mark-paid + optional ref) + **card** (mark only, no PSP integration). **Multi-tender in v1** — settle records one or more payments (cash+UPI split supported).
+- **Discounts / comps (in v1):** order-level discount (**percent or flat**, with reason + acting user) that reduces the **GST taxable base** correctly; per-line **comp** (free item, reason) excluded from the charge and tracked separately.
 - **Numbering:** `orderNumber` at creation (may have gaps from voids); `invoiceNumber` assigned **at settle** from an atomic per-restaurant counter (gap-free for tax invoices). `idempotencyKey` (unique) on every order to make "Send" safe to retry.
 - **Print:** v1 = printable KOT / Invoice HTML routes + `window.print()`. Native/LAN ESC-POS thermal = later.
 - **Access:** manager-scoped (`getManagerContextOrNull` + `withManagerValidation`), single restaurant. Every place/void/settle stamped with the acting user.
@@ -42,6 +43,7 @@ enum OrderType        { DINE_IN TAKEAWAY DELIVERY }
 enum OrderStatus      { OPEN COMPLETED VOID }
 enum OrderLineState   { UNSENT FIRED SERVED VOID }
 enum PaymentMode      { CASH UPI CARD OTHER }
+enum DiscountType     { NONE PERCENT FLAT }
 
 // --- add to Restaurant ---
 // nextInvoiceSeq Int  @default(1)   // atomic counter for gap-free tax invoice numbers
@@ -63,7 +65,11 @@ model Order {
   // money snapshot, computed at settle
   subtotal       Decimal     @default(0) @db.Decimal(10, 2)
   taxTotal       Decimal     @default(0) @db.Decimal(10, 2)
+  discountType   DiscountType @default(NONE)
+  discountValue  Decimal     @default(0) @db.Decimal(10, 2)   // percent or flat rupees
+  discountReason String?
   discountTotal  Decimal     @default(0) @db.Decimal(10, 2)
+  compTotal      Decimal     @default(0) @db.Decimal(10, 2)
   roundOff       Decimal     @default(0) @db.Decimal(10, 2)
   grandTotal     Decimal     @default(0) @db.Decimal(10, 2)
 
@@ -97,6 +103,8 @@ model OrderItem {
   taxKind       String        @default("NONE")        // NONE | SERVICE | GOODS
   taxInclusive  Boolean       @default(false)
   state         OrderLineState @default(UNSENT)
+  isComp        Boolean       @default(false)         // free/complimentary line
+  compReason    String?
   firedAt       DateTime?
   voidReason    String?
   sortOrder     Int           @default(0)
@@ -142,8 +150,8 @@ model Payment {
 
 `computeBill(lines)` → `{ lines:[{ taxable, cgst, sgst, tax, total }], subtotal, taxTotal, roundOff, grandTotal }`
 - Per line: `gross = (unitPrice + Σ modifier deltas) × qty`. If `taxInclusive` → back-out tax from gross; else tax = `gross × rate/100`. `cgst = sgst = tax/2`.
-- `NONE` kind → zero tax. Sum lines → `subtotal`, `taxTotal`. `roundOff` = nearest ₹1 on grand total; `grandTotal` = rounded.
-- Reuses the tax already resolved on the menu item (`resolveItemTax`) at add-to-cart time and **snapshots** it onto the line. This is the buyer's trust anchor — unit-tested across SERVICE / GOODS / NONE / composition / inclusive.
+- `NONE` kind → zero tax. **Comp** lines charge ₹0 (excluded from taxable, summed into `compTotal`). **Discount** (percent or flat) reduces each non-comp line's **taxable base proportionally** *before* tax, so CGST/SGST compute on the discounted base (India rule). `roundOff` = nearest ₹1 on grand total; `grandTotal` = rounded.
+- Reuses the tax already resolved on the menu item (`resolveItemTax`) at add-to-cart time and **snapshots** it onto the line. This is the buyer's trust anchor — unit-tested across SERVICE / GOODS / NONE / composition / inclusive / **discount / comp / round-off**.
 
 ---
 
@@ -229,15 +237,15 @@ v1 is a **connected** POS with browser printing. This is stated plainly (per the
 
 ---
 
-## 9. Open decisions (confirm before I build)
+## 9. Decisions (locked)
 
-1. **Scope** — v1 = counter/takeaway **+ basic dine-in tab** (open order, add rounds, fire-new; no floor map/merge/split) — recommended. Or **takeaway-only** and defer all dine-in to v1.1?
-2. **Print** — v1 uses **browser `window.print()`** on print-friendly KOT/Invoice HTML (native LAN thermal later). OK?
-3. **Payments** — cash + UPI + card(mark) in v1; **multi-tender split** now or v1.1? (recommend model-now, UI v1.1.)
-4. **Delivery** — include as **manual "takeaway + customer/address"** (no aggregator), or hide the delivery type entirely in v1? (recommend manual.)
-5. **Day-close** — a light **"today's sales" summary** in v1; full **Z-report + cash reconciliation** in v1.1. OK?
-6. **Discounts/comps** — **defer to v1.1**? (recommend defer — keeps the GST base clean for v1.)
-7. **Routes** — POS at **`/dashboard/pos`**, Orders at **`/dashboard/orders`** (sidebar "Orders" → orders; add a "POS/New order" entry). OK?
+1. **Scope** — takeaway/counter **+ basic dine-in tab** (open order, add rounds, fire-only-new). ✅
+2. **Print** — browser `window.print()` on print-friendly KOT/Invoice HTML. ✅
+3. **Payments** — cash + UPI + card(mark), **multi-tender in v1** (settle records ≥1 payment; cash+UPI split). ✅
+4. **Delivery** — manual **"takeaway + customer name/phone/address"** (no aggregator). ✅
+5. **Day-close** — light **"today's sales"** summary in v1; full Z-report/cash-reconciliation v1.1. ✅
+6. **Discounts/comps** — **in v1**: order-level discount (% or flat) + per-line comp, both with reason + acting user, GST base adjusted correctly. ✅
+7. **Routes** — POS `/dashboard/pos`, Orders `/dashboard/orders`; sidebar "Orders" wired + a "POS" entry. ✅
 
 ## 10. Deliberately deferred (with rationale)
 

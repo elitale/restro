@@ -29,6 +29,21 @@ Full menu CRUD shipped (plan: `.plan/menu-crud.md`, planned with buyer + staff a
 
 ---
 
+## POS & Orders (2026-07-18) — COMPLETE
+
+POS + order lifecycle + billing/settlement shipped (plan: `.plan/pos-orders.md`, planned with buyer + staff agents). Bottom-up, TDD. Discounts + comps + multi-tender **included in v1** (user decision).
+
+- **Schema (`add_orders` migration):** enums `OrderType`(DINE_IN/TAKEAWAY/DELIVERY), `OrderStatus`(OPEN/COMPLETED/VOID), `OrderLineState`(UNSENT/FIRED/SERVED/VOID), `PaymentMode`(CASH/UPI/CARD/OTHER), `DiscountType`(NONE/PERCENT/FLAT). `Restaurant.nextInvoiceSeq Int @default(1)`. Models `Order` (orderNumber per-restaurant, `invoiceNumber?`, `idempotencyKey @unique`, money Decimals, discount/comp/roundOff fields, void audit), `OrderItem` (**snapshots** name/variant/unitPrice/taxRate/taxKind/taxInclusive/state/isComp/sortOrder — never trust client prices), `OrderItemModifier` (snapshot), `Payment`.
+- **Billing (`services/billing.ts`, pure/deterministic, client-safe):** `computeBill(lines, discount?)` — inclusive/exclusive tax back-out, comp lines free, proportional discount on pre-tax base, CGST=SGST split, round to nearest ₹1. Reused **client-side** for live cart/settle previews (imported into client components deliberately — it has no IO).
+- **Layers:** `lib/validators/order.ts` (cart/create/addItems/fire/serve/void/settle; `idempotencyKey min8`; settle refine requires discount value when type set); `repositories/order.repository.ts` (`settleOrder` uses `prisma.$transaction` to atomically bump `nextInvoiceSeq` + write payments); services `order`(snapshot from `getMenu`, idempotency, per-line fire)/`settlement`(recompute authoritative bill, verify tender ≥ grandTotal −0.5)/`sales`(`getTodaySales`); `actions/order.actions.ts` (`withManagerValidation`).
+- **UI:** `/dashboard/pos` (`components/pos/`: `pos-terminal`, `menu-item-grid`, `item-config-dialog` variant/modifier/qty/note, `cart-line-list`, `use-order-cart` hook, `types`) — tap→configure→cart, order type + table/customer/delivery-address, live totals, `Send to kitchen` (client `crypto.randomUUID()` idempotency key) → toast w/ **Print KOT** action. `/dashboard/orders` (`components/orders/`: `orders-board` Open/Completed + today's sales, `order-detail` add-round/fire/serve/void-line/void-order/settle, `settle-dialog` discount + multi-tender + change due, `add-items-dialog` reuses POS grid, `reason-dialog`, `print-button`). Printable **KOT** (`[id]/kot`, no prices) + **Invoice** (`[id]/invoice`, GSTIN/CGST/SGST/round-off, `?copy=1`→DUPLICATE, BILL OF SUPPLY when unregistered) via `window.print()`; dashboard chrome hidden with `@media print` in `globals.css`.
+- **Sidebar:** added **POS** + wired **Orders** → `/dashboard/orders`.
+- **Shared:** `OrderLineDTO.taxInclusive` added so client settle preview matches server billing; `lib/format.ts` (`formatCurrency`/`formatDateTime`/`formatTime`).
+- **Tests:** 193 pass (was 158). tsc + eslint clean. New specs: billing, order validators, order repo (+`$transaction` mock), order/settlement/sales services, order actions.
+- **Deferred:** KDS screen, per-fire KOT diffing (KOT prints all active lines), reservations/tables, offline queue, refunds/reopen, split-by-seat, reprint tracking.
+
+---
+
 ## Current Codebase State (2026-07-18)
 
 - `src/app/` — root `layout.tsx`/`page.tsx`/`globals.css`; `login/` (phone-first login); **`admin/`** — `layout.tsx` (admin-gated), `page.tsx` (overview), `users/`, `restaurants/` (+ `new/` onboard)

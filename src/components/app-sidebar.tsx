@@ -18,6 +18,7 @@ import {
   UtensilsCrossedIcon,
   LayoutDashboardIcon,
   ReceiptTextIcon,
+  CalculatorIcon,
   BookOpenIcon,
   ArmchairIcon,
   BoxesIcon,
@@ -27,7 +28,8 @@ import {
 
 const navMain = [
   { title: "Dashboard", url: "/dashboard", icon: <LayoutDashboardIcon /> },
-  { title: "Orders", url: "#", icon: <ReceiptTextIcon /> },
+  { title: "POS", url: "/dashboard/pos", icon: <CalculatorIcon /> },
+  { title: "Orders", url: "/dashboard/orders", icon: <ReceiptTextIcon /> },
   { title: "Menu", url: "/dashboard/menu", icon: <BookOpenIcon /> },
   { title: "Tables", url: "#", icon: <ArmchairIcon /> },
   { title: "Inventory", url: "#", icon: <BoxesIcon /> },

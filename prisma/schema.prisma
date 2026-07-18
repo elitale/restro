@@ -42,6 +42,38 @@ enum Disable86Reason {
   OTHER
 }
 
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+enum OrderStatus {
+  OPEN
+  COMPLETED
+  VOID
+}
+
+enum OrderLineState {
+  UNSENT
+  FIRED
+  SERVED
+  VOID
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  OTHER
+}
+
+enum DiscountType {
+  NONE
+  PERCENT
+  FLAT
+}
+
 /// Restaurant manager / operator account.
 /// Phone number is the primary identifier used to sign in; email is optional
 /// and can be added later for notifications (Resend).
@@ -81,6 +113,7 @@ model Restaurant {
   pricesTaxInclusive  Boolean             @default(false)
   gstin               String?
   sacCode             String?             @default("996331")
+  nextInvoiceSeq      Int                 @default(1)
 
   isActive    Boolean   @default(true)
   onboardedAt DateTime  @default(now())
@@ -94,6 +127,7 @@ model Restaurant {
   categories     MenuCategory[]
   menuItems      MenuItem[]
   modifierGroups ModifierGroup[]
+  orders         Order[]
 
   @@index([ownerId])
   @@index([isActive])
@@ -260,4 +294,103 @@ model MenuItemModifierGroup {
 
   @@id([menuItemId, modifierGroupId])
   @@index([modifierGroupId])
+}
+
+/// A customer order (takeaway / dine-in tab / manual delivery). Stays OPEN and
+/// mutable until settled; lines snapshot price + tax so old bills never change.
+model Order {
+  id              String       @id @default(cuid())
+  restaurantId    String
+  orderNumber     Int
+  invoiceNumber   Int?
+  idempotencyKey  String       @unique
+  orderType       OrderType    @default(TAKEAWAY)
+  status          OrderStatus  @default(OPEN)
+  tableLabel      String?
+  customerName    String?
+  customerPhone   String?
+  customerAddress String?
+  note            String?
+
+  subtotal       Decimal      @default(0) @db.Decimal(10, 2)
+  taxTotal       Decimal      @default(0) @db.Decimal(10, 2)
+  discountType   DiscountType @default(NONE)
+  discountValue  Decimal      @default(0) @db.Decimal(10, 2)
+  discountReason String?
+  discountTotal  Decimal      @default(0) @db.Decimal(10, 2)
+  compTotal      Decimal      @default(0) @db.Decimal(10, 2)
+  roundOff       Decimal      @default(0) @db.Decimal(10, 2)
+  grandTotal     Decimal      @default(0) @db.Decimal(10, 2)
+
+  placedById String
+  voidedById String?
+  voidReason String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  settledAt  DateTime?
+  deletedAt  DateTime?
+
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id])
+  items      OrderItem[]
+  payments   Payment[]
+
+  @@unique([restaurantId, orderNumber])
+  @@index([restaurantId, status])
+}
+
+/// One line on an order — fully snapshotted from the menu at add time.
+model OrderItem {
+  id           String         @id @default(cuid())
+  orderId      String
+  menuItemId   String?
+  variantId    String?
+  name         String
+  variantName  String?
+  unitPrice    Decimal        @db.Decimal(10, 2)
+  quantity     Int            @default(1)
+  lineNote     String?
+  taxRate      Decimal        @default(0) @db.Decimal(5, 2)
+  taxKind      String         @default("NONE")
+  taxInclusive Boolean        @default(false)
+  state        OrderLineState @default(UNSENT)
+  isComp       Boolean        @default(false)
+  compReason   String?
+  firedAt      DateTime?
+  voidReason   String?
+  sortOrder    Int            @default(0)
+  createdAt    DateTime       @default(now())
+
+  order     Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  modifiers OrderItemModifier[]
+
+  @@index([orderId])
+}
+
+/// A chosen add-on on an order line — snapshotted.
+model OrderItemModifier {
+  id          String  @id @default(cuid())
+  orderItemId String
+  modifierId  String?
+  name        String
+  priceDelta  Decimal @default(0) @db.Decimal(10, 2)
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId])
+}
+
+/// A tender against an order (multi-tender supported).
+model Payment {
+  id           String      @id @default(cuid())
+  orderId      String
+  mode         PaymentMode
+  amount       Decimal     @db.Decimal(10, 2)
+  tendered     Decimal?    @db.Decimal(10, 2)
+  reference    String?
+  receivedById String
+  createdAt    DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }

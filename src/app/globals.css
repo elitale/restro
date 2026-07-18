@@ -139,3 +139,16 @@
     font-family: var(--font-heading);
   }
 }
+
+/* Print: strip dashboard chrome so KOT / invoice routes print clean. */
+@media print {
+  [data-slot="sidebar"],
+  header {
+    display: none !important;
+  }
+  [data-slot="sidebar-inset"] {
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}

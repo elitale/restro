@@ -32,6 +32,7 @@ const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   pricesTaxInclusive: false,
   gstin: null,
   sacCode: "996331",
+  nextInvoiceSeq: 1,
   isActive: true,
   onboardedAt: new Date(),
   createdAt: new Date(),
