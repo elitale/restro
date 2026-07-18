@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
+/// Restaurant manager / operator account.
+/// Phone number is the primary identifier used to sign in; email is optional
+/// and can be added later for notifications (Resend).
+model User {
+  id              String    @id @default(cuid())
+  phone           String    @unique
+  phoneVerifiedAt DateTime?
+  email           String?   @unique
+  emailVerifiedAt DateTime?
+  name            String?
+  role            UserRole  @default(MANAGER)
+  isActive        Boolean   @default(true)
+  suspendedAt     DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  ownedRestaurants Restaurant[] @relation("RestaurantOwner")
+
+  @@index([role])
+}
+
+/// A restaurant onboarded onto the platform, owned by a manager (User).
+model Restaurant {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  email       String?
+  phone       String?
+  city        String?
+  country     String    @default("IN")
+  timezone    String?
+  isActive    Boolean   @default(true)
+  onboardedAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  ownerId String
+  owner   User   @relation("RestaurantOwner", fields: [ownerId], references: [id])
+
+  @@index([ownerId])
+  @@index([isActive])
+}
