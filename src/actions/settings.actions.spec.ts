@@ -5,6 +5,8 @@ vi.mock("@/lib/manager-auth", () => ({ getManagerContextOrNull: vi.fn() }));
 vi.mock("@/services/restaurant-settings.service", () => ({
   updateTaxProfile: vi.fn(),
   updateRestaurantProfile: vi.fn(),
+  updateUsername: vi.fn(),
+  regenerateUsername: vi.fn(),
 }));
 vi.mock("@/services/restaurant-image.service", () => ({
   addGalleryImage: vi.fn(),
@@ -23,16 +25,20 @@ vi.mock("@/services/restaurant-video.service", () => ({
 import { getManagerContextOrNull } from "@/lib/manager-auth";
 import { removeGalleryImage } from "@/services/restaurant-image.service";
 import {
+  regenerateUsername,
   updateRestaurantProfile,
   updateTaxProfile,
+  updateUsername,
 } from "@/services/restaurant-settings.service";
 import { addVideoLink, removeVideo } from "@/services/restaurant-video.service";
 import {
   addVideoLinkAction,
+  regenerateUsernameAction,
   removeGalleryImageAction,
   removeVideoAction,
   updateRestaurantProfileAction,
   updateTaxProfileAction,
+  updateUsernameAction,
 } from "./settings.actions";
 
 describe("updateTaxProfileAction", () => {
@@ -173,5 +179,48 @@ describe("restaurant profile actions", () => {
 
     expect(result.success).toBe(true);
     expect(removeVideo).toHaveBeenCalledWith("res_1", "v1");
+  });
+});
+
+describe("username actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getManagerContextOrNull).mockResolvedValue({
+      userId: "u1",
+      restaurantId: "res_1",
+    });
+  });
+
+  it("updateUsernameAction delegates a normalized username", async () => {
+    const result = await updateUsernameAction({ username: "Tasty_1" });
+
+    expect(result.success).toBe(true);
+    expect(updateUsername).toHaveBeenCalledWith("res_1", "tasty_1");
+  });
+
+  it("updateUsernameAction rejects an invalid username", async () => {
+    const result = await updateUsernameAction({ username: "no" });
+
+    expect(result.success).toBe(false);
+    expect(updateUsername).not.toHaveBeenCalled();
+  });
+
+  it("regenerateUsernameAction returns the new username", async () => {
+    vi.mocked(regenerateUsername).mockResolvedValue("fresh9");
+
+    const result = await regenerateUsernameAction();
+
+    expect(result.success).toBe(true);
+    expect(result.data).toBe("fresh9");
+    expect(regenerateUsername).toHaveBeenCalledWith("res_1");
+  });
+
+  it("regenerateUsernameAction fails without a restaurant", async () => {
+    vi.mocked(getManagerContextOrNull).mockResolvedValue(null);
+
+    const result = await regenerateUsernameAction();
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("NO_RESTAURANT");
   });
 });

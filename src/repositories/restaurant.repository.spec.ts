@@ -40,6 +40,7 @@ import {
   deleteRestaurantImage,
   deleteRestaurantVideo,
   findRestaurantBySlug,
+  findRestaurantByUsername,
   findRestaurantsPaginated,
   updateRestaurant,
   updateRestaurantTaxProfile,
@@ -49,6 +50,7 @@ const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   id: "res_1",
   name: "Spice Route",
   slug: "spice-route",
+  username: null,
   email: null,
   phone: null,
   city: null,
@@ -126,6 +128,14 @@ describe("restaurantRepository", () => {
     await findRestaurantBySlug("spice-route");
 
     expect(findUnique).toHaveBeenCalledWith({ where: { slug: "spice-route" } });
+  });
+
+  it("findRestaurantByUsername queries by username", async () => {
+    findUnique.mockResolvedValue(null);
+
+    await findRestaurantByUsername("tasty1");
+
+    expect(findUnique).toHaveBeenCalledWith({ where: { username: "tasty1" } });
   });
 
   it("findRestaurantsPaginated excludes deleted and paginates", async () => {

@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { UtensilsCrossedIcon } from "lucide-react"
 
 import { requestOtpAction, verifyOtpAction } from "@/actions/auth.actions"
+import { startLoginAction, verifyPinAction } from "@/actions/pin.actions"
 import { PhoneInput } from "@/components/phone-input"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,27 +22,48 @@ import { phoneSchema } from "@/lib/validators/shared"
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   OTP_USER_NOT_FOUND:
     "This phone number isn't registered. Ask your administrator to add you.",
+  PIN_INVALID: "Incorrect PIN.",
+  PIN_LOCKED: "Too many attempts. Use a one-time code to sign in.",
 }
 
 const toAuthMessage = (raw: string) => AUTH_ERROR_MESSAGES[raw] ?? raw
+
+type Step = "phone" | "pin" | "code"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const [step, setStep] = useState<"phone" | "code">("phone")
+  const [step, setStep] = useState<Step>("phone")
   const [phone, setPhone] = useState("")
+  const [pin, setPin] = useState("")
   const [code, setCode] = useState("")
   const [error, setError] = useState<string | null>(null)
+
+  const start = useServerAction(startLoginAction, {
+    onSuccess: (data) => {
+      setError(null)
+      setStep(data?.method === "pin" ? "pin" : "code")
+    },
+    onError: (message) => setError(toAuthMessage(message)),
+  })
 
   const sendCode = useServerAction(requestOtpAction, {
     onSuccess: () => {
       setError(null)
+      setPin("")
       setStep("code")
     },
+    onError: (message) => setError(toAuthMessage(message)),
+  })
+
+  const verifyPin = useServerAction(verifyPinAction, {
+    redirectTo: "/dashboard",
     onError: (message) => {
-      const msg = toAuthMessage(message);
-      return setError(msg)
+      setError(toAuthMessage(message))
+      if (message === "PIN_LOCKED") {
+        sendCode.execute({ phone })
+      }
     },
   })
 
@@ -58,7 +80,17 @@ export function LoginForm({
       return
     }
     setError(null)
-    sendCode.execute({ phone })
+    start.execute({ phone })
+  }
+
+  const handlePinSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!/^\d{4,6}$/.test(pin)) {
+      setError("Enter your 4–6 digit PIN")
+      return
+    }
+    setError(null)
+    verifyPin.execute({ phone, pin })
   }
 
   const handleCodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -71,9 +103,12 @@ export function LoginForm({
     verify.execute({ phone, code })
   }
 
-  useEffect(() => {
-    console.log({error})
-  }, [error])
+  const changeNumber = () => {
+    setPin("")
+    setCode("")
+    setError(null)
+    setStep("phone")
+  }
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -101,10 +136,10 @@ export function LoginForm({
                   }
                 }}
                 invalid={Boolean(error)}
-                disabled={sendCode.isPending}
+                disabled={start.isPending}
               />
               <FieldDescription>
-                We&apos;ll text you a one-time code.
+                Enter your PIN, or we&apos;ll text you a one-time code.
               </FieldDescription>
               {error ? (
                 <FieldDescription className="text-destructive">
@@ -113,13 +148,73 @@ export function LoginForm({
               ) : null}
             </Field>
             <Field>
-              <Button type="submit" disabled={sendCode.isPending}>
-                {sendCode.isPending ? "Sending code…" : "Continue"}
+              <Button type="submit" disabled={start.isPending}>
+                {start.isPending ? "Please wait…" : "Continue"}
               </Button>
             </Field>
           </FieldGroup>
         </form>
-      ) : (
+      ) : null}
+
+      {step === "pin" ? (
+        <form onSubmit={handlePinSubmit}>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="pin">PIN</FieldLabel>
+              <Input
+                id="pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={6}
+                placeholder="••••••"
+                value={pin}
+                onChange={(event) => {
+                  setPin(event.target.value.replace(/\D/g, "").slice(0, 6))
+                  if (error) {
+                    setError(null)
+                  }
+                }}
+                aria-invalid={error ? true : undefined}
+                autoFocus
+              />
+              <FieldDescription>
+                Signing in as {phone}.{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={changeNumber}
+                >
+                  Change number
+                </button>
+              </FieldDescription>
+              {error ? (
+                <FieldDescription className="text-destructive">
+                  {error}
+                </FieldDescription>
+              ) : null}
+            </Field>
+            <Field>
+              <Button type="submit" disabled={verifyPin.isPending}>
+                {verifyPin.isPending ? "Verifying…" : "Sign in"}
+              </Button>
+              <FieldDescription className="text-center">
+                Forgot your PIN?{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  disabled={sendCode.isPending}
+                  onClick={() => sendCode.execute({ phone })}
+                >
+                  Sign in with a code instead
+                </button>
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
+        </form>
+      ) : null}
+
+      {step === "code" ? (
         <form onSubmit={handleCodeSubmit}>
           <FieldGroup>
             <Field>
@@ -145,11 +240,7 @@ export function LoginForm({
                 <button
                   type="button"
                   className="underline"
-                  onClick={() => {
-                    setCode("")
-                    setError(null)
-                    setStep("phone")
-                  }}
+                  onClick={changeNumber}
                 >
                   Change number
                 </button>
@@ -178,7 +269,7 @@ export function LoginForm({
             </Field>
           </FieldGroup>
         </form>
-      )}
+      ) : null}
 
       <FieldDescription className="px-6 text-center">
         By continuing, you agree to our <a href="#">Terms of Service</a> and{" "}

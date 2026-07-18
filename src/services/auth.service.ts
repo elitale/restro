@@ -8,7 +8,7 @@ import {
   findLatestActiveChallenge,
   incrementChallengeAttempts,
 } from "@/repositories/otp.repository";
-import { findUserByPhone } from "@/repositories/user.repository";
+import { findUserByPhone, resetPinCounters } from "@/repositories/user.repository";
 
 export const OTP_RATE_LIMITED = "OTP_RATE_LIMITED";
 export const OTP_EXPIRED = "OTP_EXPIRED";
@@ -73,6 +73,32 @@ export const verifyOtp = async (
 
   const user = await findEligibleUser(phone);
   await consumeChallenge(challenge.id);
+  if (user.pinFailedAttempts > 0 || user.pinLockedUntil) {
+    await resetPinCounters(user.id);
+  }
 
   return user.id;
+};
+
+/**
+ * Decide the login method after the phone step. If the phone has a usable PIN
+ * (set and not locked out) → "pin". Otherwise send an OTP → "otp".
+ */
+export const startLogin = async (phone: string): Promise<"pin" | "otp"> => {
+  const user = await findEligibleUser(phone);
+  const locked = user.pinLockedUntil
+    ? user.pinLockedUntil.getTime() > Date.now()
+    : false;
+  if (user.pinHash && !locked) {
+    return "pin";
+  }
+  try {
+    await requestOtp(phone);
+  } catch (error) {
+    // A code sent moments ago is still valid — don't block routing to OTP.
+    if (!(error instanceof Error) || error.message !== OTP_RATE_LIMITED) {
+      throw error;
+    }
+  }
+  return "otp";
 };

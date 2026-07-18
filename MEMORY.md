@@ -196,6 +196,26 @@ Next 16.2.10 · React 19.2.4 · TypeScript 5 · Tailwind v4 · shadcn/ui + `@bas
 
 ---
 
+## Manager sign-in PIN (SHIPPED — `.plan/manager-pin-login.md`)
+
+- **Goal:** managers set a PIN on `/dashboard/settings` to skip the SMS OTP on repeat logins. **Owner-chosen model: phone + PIN from anywhere** (weaker; hardened with compensating controls). OTP always stays as fallback.
+- **Login is phone-first + auto-routed** (no method chooser): `startLoginAction({phone})` → `startLogin()` in `auth.service.ts` returns `"pin"` (phone has a usable PIN) or `"otp"` (sends code). Login form (`login-form.tsx`) has 3 steps: phone → **pin** (Forgot PIN? / lockout → OTP) → **code**. Removed the old debug `useEffect(console.log)`.
+- **Model:** `User` gained `pinHash`/`pinUpdatedAt`/`pinFailedAttempts`/`pinLockedUntil` (migration `add_manager_pin`, additive). **Hashing = scrypt + per-user salt** via `lib/pin.ts` (`scrypt$salt$hash`, `node:crypto`, constant-time) — NOT the deterministic staff HMAC (login PIN needs salt + slow KDF).
+- **Service `pin-auth.service.ts`:** `setManagerPin`/`removeManagerPin`/`getPinStatus`/`verifyPinLogin`. Lockout: `MAX_PIN_ATTEMPTS=5` → `pinLockedUntil = now+15min` (`PIN_LOCKED`); wrong PIN = generic `PIN_INVALID` (no enumeration). Successful OTP login resets counters (unlocks). `verifyPinLogin` re-checks eligibility (deleted/suspended/inactive) every time.
+- **Actions `pin.actions.ts`:** `startLoginAction`, `verifyPinAction` (→ `createSession`), `setPinAction`/`removePinAction` (auth via `getCurrentUserId`, throw/return `NO_SESSION`). Validators `managerPinSchema`/`setPinSchema`/`verifyPinSchema` in `lib/validators/auth.ts`.
+- **Settings UI:** `sign-in-pin-card.tsx` (status + Set/Change/Remove, no re-auth) + `pin-dialog.tsx` (PIN + confirm, masked). Page passes `getPinStatus(ctx.userId)`.
+- **Accepted residual risk:** phone+PIN-anywhere reveals PIN-presence via the router + has no possession factor. §12 upgrade path = device-binding + SMS-on-PIN-login alert (keep modular).
+
+---
+
+## Restaurant username (SHIPPED)
+
+- **`Restaurant.username String? @unique`** (migration `add_restaurant_username`, nullable-unique so additive; Postgres allows multiple NULLs). Distinct from `slug`.
+- **Auto-generated 7-char lowercase alphanumeric** via `lib/username.ts` (`generateUsername`, `randomInt`). `generateUniqueUsername()` in `restaurant.service.ts` (loops vs `findRestaurantByUsername`, mirrors `uniqueSlug`). Set at onboarding; **lazily generated + persisted** on first `getRestaurantProfile` when null (`resolveUsername`).
+- **Settings UI:** `components/settings/username-card.tsx` (input + Save + "Generate new"); `updateUsernameAction` (unique-checked, `USERNAME_TAKEN`) + `regenerateUsernameAction`. Validator `usernameSchema` = `/^[a-z0-9_]{3,20}$/` (lowercased). DTO gained `username`.
+
+---
+
 ## Notes / Gotchas
 
 - **`AGENT.md` vs `AGENTS.md`:** `.github/copilot-instructions.md` says "AGENT.md", but the live file imported by `CLAUDE.md` is **`AGENTS.md`**. Treat `AGENTS.md` as the source of truth.

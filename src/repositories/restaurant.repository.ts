@@ -11,6 +11,11 @@ export const findRestaurantBySlug = (
 ): Promise<Restaurant | null> =>
   prisma.restaurant.findUnique({ where: { slug } });
 
+export const findRestaurantByUsername = (
+  username: string,
+): Promise<Restaurant | null> =>
+  prisma.restaurant.findUnique({ where: { username } });
+
 export const findRestaurantById = (id: string): Promise<Restaurant | null> =>
   prisma.restaurant.findUnique({ where: { id } });
 

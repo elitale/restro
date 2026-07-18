@@ -5,33 +5,43 @@ import type { Restaurant } from "@/generated/prisma/client";
 
 vi.mock("@/repositories/restaurant.repository", () => ({
   findRestaurantById: vi.fn(),
+  findRestaurantByUsername: vi.fn(),
   findRestaurantImages: vi.fn(),
   findRestaurantVideos: vi.fn(),
   updateRestaurant: vi.fn(),
   updateRestaurantTaxProfile: vi.fn(),
 }));
+vi.mock("@/services/restaurant.service", () => ({
+  generateUniqueUsername: vi.fn(),
+}));
 
 import {
   findRestaurantById,
+  findRestaurantByUsername,
   findRestaurantImages,
   findRestaurantVideos,
   updateRestaurant,
   updateRestaurantTaxProfile,
 } from "@/repositories/restaurant.repository";
+import { generateUniqueUsername } from "@/services/restaurant.service";
 import {
   fssaiStatus,
   getRestaurantProfile,
   getServiceOptions,
   getTaxProfile,
+  regenerateUsername,
   RESTAURANT_NOT_FOUND,
   updateRestaurantProfile,
   updateTaxProfile,
+  updateUsername,
+  USERNAME_TAKEN,
 } from "./restaurant-settings.service";
 
 const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   id: "res_1",
   name: "Spice Route",
   slug: "spice-route",
+  username: null,
   email: null,
   phone: null,
   city: null,
@@ -150,6 +160,7 @@ describe("getRestaurantProfile", () => {
 
   it("maps profile fields, FSSAI status and gallery", async () => {
     const past = new Date(Date.now() - 1000);
+    vi.mocked(generateUniqueUsername).mockResolvedValue("spice12");
     vi.mocked(findRestaurantById).mockResolvedValue(
       makeRestaurant({ legalName: "Spice Route Pvt Ltd", fssaiExpiry: past }),
     );
@@ -169,6 +180,77 @@ describe("getRestaurantProfile", () => {
       { id: "v1", kind: "LINK", url: "https://youtu.be/abc", caption: null },
     ]);
     expect(profile.serviceDineIn).toBe(true);
+  });
+
+  it("lazily generates + persists a username when the row has none", async () => {
+    vi.mocked(generateUniqueUsername).mockResolvedValue("newuser");
+    vi.mocked(findRestaurantById).mockResolvedValue(makeRestaurant());
+    vi.mocked(findRestaurantImages).mockResolvedValue([]);
+    vi.mocked(findRestaurantVideos).mockResolvedValue([]);
+
+    const profile = await getRestaurantProfile("res_1");
+
+    expect(profile.username).toBe("newuser");
+    expect(updateRestaurant).toHaveBeenCalledWith("res_1", {
+      username: "newuser",
+    });
+  });
+
+  it("keeps an existing username without regenerating", async () => {
+    vi.mocked(findRestaurantById).mockResolvedValue(
+      makeRestaurant({ username: "spice12" }),
+    );
+    vi.mocked(findRestaurantImages).mockResolvedValue([]);
+    vi.mocked(findRestaurantVideos).mockResolvedValue([]);
+
+    const profile = await getRestaurantProfile("res_1");
+
+    expect(profile.username).toBe("spice12");
+    expect(generateUniqueUsername).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateUsername / regenerateUsername", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("saves a free username", async () => {
+    vi.mocked(findRestaurantByUsername).mockResolvedValue(null);
+
+    await updateUsername("res_1", "tasty1");
+
+    expect(updateRestaurant).toHaveBeenCalledWith("res_1", {
+      username: "tasty1",
+    });
+  });
+
+  it("allows re-saving the restaurant's own username", async () => {
+    vi.mocked(findRestaurantByUsername).mockResolvedValue(
+      makeRestaurant({ id: "res_1", username: "tasty1" }),
+    );
+
+    await expect(updateUsername("res_1", "tasty1")).resolves.toBeUndefined();
+  });
+
+  it("rejects a username taken by another restaurant", async () => {
+    vi.mocked(findRestaurantByUsername).mockResolvedValue(
+      makeRestaurant({ id: "other", username: "tasty1" }),
+    );
+
+    await expect(updateUsername("res_1", "tasty1")).rejects.toThrow(
+      USERNAME_TAKEN,
+    );
+    expect(updateRestaurant).not.toHaveBeenCalled();
+  });
+
+  it("regenerateUsername stores + returns a fresh one", async () => {
+    vi.mocked(generateUniqueUsername).mockResolvedValue("fresh9");
+
+    const result = await regenerateUsername("res_1");
+
+    expect(result).toBe("fresh9");
+    expect(updateRestaurant).toHaveBeenCalledWith("res_1", {
+      username: "fresh9",
+    });
   });
 });
 

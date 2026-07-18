@@ -1,7 +1,9 @@
 import { GalleryManager } from "@/components/settings/gallery-manager"
 import { ProfileHeader } from "@/components/settings/profile-header"
 import { RestaurantProfileForm } from "@/components/settings/restaurant-profile-form"
+import { SignInPinCard } from "@/components/settings/sign-in-pin-card"
 import { TaxSettingsForm } from "@/components/settings/tax-settings-form"
+import { UsernameCard } from "@/components/settings/username-card"
 import { VideosManager } from "@/components/settings/videos-manager"
 import { EmptyState } from "@/components/shared/empty-state"
 import { PageHeader } from "@/components/shared/page-header"
@@ -17,6 +19,7 @@ import {
   getRestaurantProfile,
   getTaxProfile,
 } from "@/services/restaurant-settings.service"
+import { getPinStatus } from "@/services/pin-auth.service"
 
 export default async function SettingsPage() {
   const ctx = await getManagerContextOrNull()
@@ -39,6 +42,7 @@ export default async function SettingsPage() {
     getRestaurantProfile(ctx.restaurantId),
     getTaxProfile(ctx.restaurantId),
   ])
+  const pinStatus = await getPinStatus(ctx.userId)
 
   const essentials: (string | null)[] = [
     profile.name,
@@ -64,6 +68,7 @@ export default async function SettingsPage() {
         description="Your restaurant profile, branding, and tax configuration."
       />
       <ProfileHeader profile={profile} completeness={completeness} />
+      <UsernameCard username={profile.username} />
       <RestaurantProfileForm profile={profile} />
       <Card>
         <CardHeader>
@@ -89,6 +94,7 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
       <TaxSettingsForm profile={taxProfile} />
+      <SignInPinCard status={pinStatus} />
     </div>
   )
 }

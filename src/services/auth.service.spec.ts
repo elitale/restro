@@ -14,6 +14,7 @@ vi.mock("@/repositories/otp.repository", () => ({
 }));
 vi.mock("@/repositories/user.repository", () => ({
   findUserByPhone: vi.fn(),
+  resetPinCounters: vi.fn(),
 }));
 
 import { hashOtpCode } from "@/lib/otp";
@@ -33,6 +34,7 @@ import {
   OTP_TOO_MANY_ATTEMPTS,
   OTP_USER_NOT_FOUND,
   requestOtp,
+  startLogin,
   verifyOtp,
 } from "./auth.service";
 
@@ -62,6 +64,10 @@ const makeUser = (overrides: Partial<User> = {}): User => ({
   isActive: true,
   suspendedAt: null,
   deletedAt: null,
+  pinHash: null,
+  pinUpdatedAt: null,
+  pinFailedAttempts: 0,
+  pinLockedUntil: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
   ...overrides,
@@ -173,5 +179,54 @@ describe("verifyOtp", () => {
     await expect(verifyOtp(PHONE, "123456")).rejects.toThrow(
       OTP_TOO_MANY_ATTEMPTS,
     );
+  });
+});
+
+describe("startLogin", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(countRecentChallenges).mockResolvedValue(0);
+    vi.mocked(createOtpChallenge).mockResolvedValue(makeChallenge());
+  });
+
+  it("routes to PIN when the phone has a usable pin (no OTP sent)", async () => {
+    vi.mocked(findUserByPhone).mockResolvedValue(
+      makeUser({ pinHash: "scrypt$aa$bb" }),
+    );
+
+    expect(await startLogin(PHONE)).toBe("pin");
+    expect(sendSms).not.toHaveBeenCalled();
+  });
+
+  it("routes to OTP and sends a code when no pin is set", async () => {
+    vi.mocked(findUserByPhone).mockResolvedValue(makeUser());
+
+    expect(await startLogin(PHONE)).toBe("otp");
+    expect(sendSms).toHaveBeenCalled();
+  });
+
+  it("routes to OTP when the pin is locked", async () => {
+    vi.mocked(findUserByPhone).mockResolvedValue(
+      makeUser({
+        pinHash: "scrypt$aa$bb",
+        pinLockedUntil: new Date(Date.now() + 60_000),
+      }),
+    );
+
+    expect(await startLogin(PHONE)).toBe("otp");
+    expect(sendSms).toHaveBeenCalled();
+  });
+
+  it("still routes to OTP when a recent code was rate-limited", async () => {
+    vi.mocked(findUserByPhone).mockResolvedValue(makeUser());
+    vi.mocked(countRecentChallenges).mockResolvedValue(1);
+
+    expect(await startLogin(PHONE)).toBe("otp");
+  });
+
+  it("rejects an unregistered phone", async () => {
+    vi.mocked(findUserByPhone).mockResolvedValue(null);
+
+    await expect(startLogin(PHONE)).rejects.toThrow(OTP_USER_NOT_FOUND);
   });
 });

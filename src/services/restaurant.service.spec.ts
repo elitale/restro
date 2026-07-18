@@ -6,6 +6,7 @@ import type { AdminRestaurantRow } from "@/repositories/restaurant.repository";
 vi.mock("@/repositories/restaurant.repository", () => ({
   createRestaurant: vi.fn(),
   findRestaurantBySlug: vi.fn(),
+  findRestaurantByUsername: vi.fn(),
   findRestaurantsPaginated: vi.fn(),
 }));
 vi.mock("@/repositories/user.repository", () => ({
@@ -16,10 +17,15 @@ vi.mock("@/repositories/user.repository", () => ({
 import {
   createRestaurant,
   findRestaurantBySlug,
+  findRestaurantByUsername,
   findRestaurantsPaginated,
 } from "@/repositories/restaurant.repository";
 import { createUser, findUserByPhone } from "@/repositories/user.repository";
-import { listRestaurants, onboardRestaurant } from "./restaurant.service";
+import {
+  generateUniqueUsername,
+  listRestaurants,
+  onboardRestaurant,
+} from "./restaurant.service";
 
 const makeUser = (overrides: Partial<User> = {}): User => ({
   id: "usr_1",
@@ -32,6 +38,10 @@ const makeUser = (overrides: Partial<User> = {}): User => ({
   isActive: true,
   suspendedAt: null,
   deletedAt: null,
+  pinHash: null,
+  pinUpdatedAt: null,
+  pinFailedAttempts: 0,
+  pinLockedUntil: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
   ...overrides,
@@ -41,6 +51,7 @@ const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   id: "res_1",
   name: "Spice Route",
   slug: "spice-route",
+  username: null,
   email: null,
   phone: null,
   city: null,
@@ -93,6 +104,7 @@ describe("onboardRestaurant", () => {
   it("reuses an existing owner and creates a restaurant with a slug", async () => {
     vi.mocked(findUserByPhone).mockResolvedValue(makeUser());
     vi.mocked(findRestaurantBySlug).mockResolvedValue(null);
+    vi.mocked(findRestaurantByUsername).mockResolvedValue(null);
     vi.mocked(createRestaurant).mockResolvedValue(makeRestaurant());
 
     const result = await onboardRestaurant({
@@ -119,6 +131,7 @@ describe("onboardRestaurant", () => {
       makeUser({ id: "usr_new", name: "Ravi" }),
     );
     vi.mocked(findRestaurantBySlug).mockResolvedValue(null);
+    vi.mocked(findRestaurantByUsername).mockResolvedValue(null);
     vi.mocked(createRestaurant).mockResolvedValue(
       makeRestaurant({ ownerId: "usr_new" }),
     );
@@ -194,5 +207,28 @@ describe("listRestaurants", () => {
       ownerPhone: "+919876543210",
       onboardedAt: "2026-01-01T00:00:00.000Z",
     });
+  });
+});
+
+describe("generateUniqueUsername", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns a 7-char candidate that isn't already taken", async () => {
+    vi.mocked(findRestaurantByUsername).mockResolvedValue(null);
+
+    const username = await generateUniqueUsername();
+
+    expect(username).toMatch(/^[a-z0-9]{7}$/);
+    expect(findRestaurantByUsername).toHaveBeenCalledWith(username);
+  });
+
+  it("retries until it finds a free username", async () => {
+    vi.mocked(findRestaurantByUsername)
+      .mockResolvedValueOnce(makeRestaurant())
+      .mockResolvedValueOnce(null);
+
+    await generateUniqueUsername();
+
+    expect(findRestaurantByUsername).toHaveBeenCalledTimes(2);
   });
 });

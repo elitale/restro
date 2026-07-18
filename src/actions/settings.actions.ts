@@ -8,6 +8,7 @@ import {
   removeVideoSchema,
   updateProfileSchema,
   updateTaxProfileSchema,
+  updateUsernameSchema,
 } from "@/lib/validators/restaurant";
 import {
   addGalleryImage,
@@ -21,6 +22,8 @@ import {
 import {
   updateRestaurantProfile,
   updateTaxProfile,
+  updateUsername,
+  regenerateUsername,
 } from "@/services/restaurant-settings.service";
 import {
   addVideoLink,
@@ -38,6 +41,27 @@ export const updateRestaurantProfileAction = withManagerValidation(
   updateProfileSchema,
   (data, ctx) => updateRestaurantProfile(ctx.restaurantId, data),
 );
+
+export const updateUsernameAction = withManagerValidation(
+  updateUsernameSchema,
+  (data, ctx) => updateUsername(ctx.restaurantId, data.username),
+);
+
+export const regenerateUsernameAction = async (): Promise<
+  ActionResult<string>
+> => {
+  const ctx = await getManagerContextOrNull();
+  if (!ctx) {
+    return failure<string>("NO_RESTAURANT");
+  }
+  try {
+    return success(await regenerateUsername(ctx.restaurantId));
+  } catch (error) {
+    return failure<string>(
+      error instanceof Error ? error.message : "Something went wrong",
+    );
+  }
+};
 
 export const removeGalleryImageAction = withManagerValidation(
   removeGalleryImageSchema,

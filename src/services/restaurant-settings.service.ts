@@ -6,11 +6,13 @@ import {
 } from "@/lib/validators/restaurant";
 import {
   findRestaurantById,
+  findRestaurantByUsername,
   findRestaurantImages,
   findRestaurantVideos,
   updateRestaurant,
   updateRestaurantTaxProfile,
 } from "@/repositories/restaurant.repository";
+import { generateUniqueUsername } from "@/services/restaurant.service";
 import type {
   BusinessHoursDTO,
   FssaiStatus,
@@ -20,6 +22,20 @@ import type {
 } from "@/types/settings";
 
 export const RESTAURANT_NOT_FOUND = "RESTAURANT_NOT_FOUND";
+export const USERNAME_TAKEN = "USERNAME_TAKEN";
+
+/** Return the restaurant's username, lazily generating one if it has none. */
+const resolveUsername = async (restaurant: {
+  id: string;
+  username: string | null;
+}): Promise<string> => {
+  if (restaurant.username) {
+    return restaurant.username;
+  }
+  const username = await generateUniqueUsername();
+  await updateRestaurant(restaurant.id, { username });
+  return username;
+};
 
 export const getTaxProfile = async (
   restaurantId: string,
@@ -93,7 +109,9 @@ export const getRestaurantProfile = async (
   if (!restaurant || restaurant.deletedAt) {
     throw new Error(RESTAURANT_NOT_FOUND);
   }
+  const username = await resolveUsername(restaurant);
   return {
+    username,
     name: restaurant.name,
     legalName: restaurant.legalName,
     tagline: restaurant.tagline,
@@ -184,4 +202,25 @@ export const getServiceOptions = async (
     delivery: restaurant.serviceDelivery,
     defaultType: restaurant.defaultOrderType,
   };
+};
+
+/** Set a custom username, rejecting one already taken by another restaurant. */
+export const updateUsername = async (
+  restaurantId: string,
+  username: string,
+): Promise<void> => {
+  const existing = await findRestaurantByUsername(username);
+  if (existing && existing.id !== restaurantId) {
+    throw new Error(USERNAME_TAKEN);
+  }
+  await updateRestaurant(restaurantId, { username });
+};
+
+/** Replace the username with a fresh, unused 7-character one. */
+export const regenerateUsername = async (
+  restaurantId: string,
+): Promise<string> => {
+  const username = await generateUniqueUsername();
+  await updateRestaurant(restaurantId, { username });
+  return username;
 };

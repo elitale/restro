@@ -19,6 +19,46 @@ export const updateUser = (
   data: Prisma.UserUpdateInput,
 ): Promise<User> => prisma.user.update({ where: { id }, data });
 
+export const setUserPin = (id: string, pinHash: string): Promise<User> =>
+  prisma.user.update({
+    where: { id },
+    data: {
+      pinHash,
+      pinUpdatedAt: new Date(),
+      pinFailedAttempts: 0,
+      pinLockedUntil: null,
+    },
+  });
+
+export const clearUserPin = (id: string): Promise<User> =>
+  prisma.user.update({
+    where: { id },
+    data: {
+      pinHash: null,
+      pinUpdatedAt: null,
+      pinFailedAttempts: 0,
+      pinLockedUntil: null,
+    },
+  });
+
+export const recordPinFailure = (
+  id: string,
+  data: { failedAttempts: number; lockedUntil: Date | null },
+): Promise<User> =>
+  prisma.user.update({
+    where: { id },
+    data: {
+      pinFailedAttempts: data.failedAttempts,
+      pinLockedUntil: data.lockedUntil,
+    },
+  });
+
+export const resetPinCounters = (id: string): Promise<User> =>
+  prisma.user.update({
+    where: { id },
+    data: { pinFailedAttempts: 0, pinLockedUntil: null },
+  });
+
 export interface UserAuthState {
   readonly role: UserRole;
   readonly suspendedAt: Date | null;

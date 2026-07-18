@@ -16,11 +16,15 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   createUser,
+  clearUserPin,
   findUserByEmail,
   findUserById,
   findUserByPhone,
   findUsersPaginated,
   getUserAuthState,
+  recordPinFailure,
+  resetPinCounters,
+  setUserPin,
   updateUser,
 } from "./user.repository";
 
@@ -35,6 +39,10 @@ const makeUser = (overrides: Partial<User> = {}): User => ({
   isActive: true,
   suspendedAt: null,
   deletedAt: null,
+  pinHash: null,
+  pinUpdatedAt: null,
+  pinFailedAttempts: 0,
+  pinLockedUntil: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
   ...overrides,
@@ -97,6 +105,61 @@ describe("userRepository", () => {
       data: { email: "asha@spice.test" },
     });
     expect(result).toBe(user);
+  });
+
+  it("setUserPin stores the hash and resets counters", async () => {
+    update.mockResolvedValue(makeUser());
+
+    await setUserPin("usr_1", "scrypt$aa$bb");
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "usr_1" },
+      data: {
+        pinHash: "scrypt$aa$bb",
+        pinUpdatedAt: expect.any(Date),
+        pinFailedAttempts: 0,
+        pinLockedUntil: null,
+      },
+    });
+  });
+
+  it("clearUserPin nulls the hash and resets counters", async () => {
+    update.mockResolvedValue(makeUser());
+
+    await clearUserPin("usr_1");
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "usr_1" },
+      data: {
+        pinHash: null,
+        pinUpdatedAt: null,
+        pinFailedAttempts: 0,
+        pinLockedUntil: null,
+      },
+    });
+  });
+
+  it("recordPinFailure writes the attempt count + lock", async () => {
+    const lockedUntil = new Date("2026-02-01T00:00:00.000Z");
+    update.mockResolvedValue(makeUser());
+
+    await recordPinFailure("usr_1", { failedAttempts: 5, lockedUntil });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "usr_1" },
+      data: { pinFailedAttempts: 5, pinLockedUntil: lockedUntil },
+    });
+  });
+
+  it("resetPinCounters clears attempts + lock", async () => {
+    update.mockResolvedValue(makeUser());
+
+    await resetPinCounters("usr_1");
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "usr_1" },
+      data: { pinFailedAttempts: 0, pinLockedUntil: null },
+    });
   });
 
   it("getUserAuthState selects role + status flags", async () => {

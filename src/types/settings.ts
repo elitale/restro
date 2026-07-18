@@ -52,6 +52,7 @@ export interface ServiceOptions {
 }
 
 export interface RestaurantProfileDTO {
+  readonly username: string;
   readonly name: string;
   readonly legalName: string | null;
   readonly tagline: string | null;

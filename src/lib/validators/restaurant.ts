@@ -133,3 +133,15 @@ export type AddVideoLinkInput = z.infer<typeof addVideoLinkSchema>;
 
 export const removeVideoSchema = z.object({ id: idSchema });
 export type RemoveVideoInput = z.infer<typeof removeVideoSchema>;
+
+export const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(
+    /^[a-z0-9_]{3,20}$/,
+    "Use 3–20 lowercase letters, numbers or underscores",
+  );
+
+export const updateUsernameSchema = z.object({ username: usernameSchema });
+export type UpdateUsernameInput = z.infer<typeof updateUsernameSchema>;

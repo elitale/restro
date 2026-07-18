@@ -88,6 +88,13 @@ model User {
   isActive        Boolean   @default(true)
   suspendedAt     DateTime?
   deletedAt       DateTime?
+
+  // Optional sign-in PIN (scrypt-hashed) — an alternative to the SMS OTP.
+  pinHash           String?
+  pinUpdatedAt      DateTime?
+  pinFailedAttempts Int       @default(0)
+  pinLockedUntil    DateTime?
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -113,6 +120,7 @@ model Restaurant {
   id          String    @id @default(cuid())
   name        String
   slug        String    @unique
+  username    String?   @unique
   email       String?
   phone       String?
   city        String?
