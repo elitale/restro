@@ -187,6 +187,15 @@ Next 16.2.10 · React 19.2.4 · TypeScript 5 · Tailwind v4 · shadcn/ui + `@bas
 
 ---
 
+## Staff module (SHIPPED — `.plan/staff.md`)
+
+- **`/dashboard/staff`** — manager-only. Add/edit/remove staff grouped by role (Waiter / Kitchen / Management), avatar + status badge + employee ID + phone + PIN-set indicator. Sidebar wired (`UsersIcon`).
+- **Roles/status enums:** `StaffRole` (WAITER/KITCHEN/MANAGEMENT), `StaffStatus` (ACTIVE/ON_LEAVE/INACTIVE), `EmploymentType`, `Gender`. Model `Staff` (migration `add_staff`): full profile — photo, name, phone, email?, address, DOB, gender, joining/employment, emergency contact, notes. **No salary/bank/Aadhaar** (deliberately cut). `@@unique([restaurantId, employeeCode])` + `@@unique([restaurantId, pinHash])`; soft-delete via `deletedAt` (revive on re-add of same code).
+- **PIN, not login:** "password" = a **4–6 digit POS PIN**, HMAC-hashed via `lib/staff-pin.ts` (`hashStaffPin(pin, restaurantId)` = `createHmac("sha256", AUTH_SECRET).update(`${restaurantId}:${pin}`)`), deterministic per (restaurant, pin) → enables the unique constraint + O(1) lookup. Manager phone-OTP stays the **only** real login; staff never log in. DTO exposes `hasPin`, never `pinHash`.
+- **Layers:** `staff.repository` → `staff.service` (create/update/delete/resetPin, code-taken + pin-taken guards, revive-if-soft-deleted) + `staff-image.service` (sharp → 512×512 webp → `staff/{id}/photo.webp`, cache-busted url). Actions `staff.actions.ts` via `withManagerValidation`; photo upload/remove are FormData actions (need an existing `staffId`, so **photo uploader shows only in edit mode**). Validators in `lib/validators/staff.ts` (pin `/^\d{4,6}$/`). Attribution (per-staff order/void) **deferred to v1.1**.
+
+---
+
 ## Notes / Gotchas
 
 - **`AGENT.md` vs `AGENTS.md`:** `.github/copilot-instructions.md` says "AGENT.md", but the live file imported by `CLAUDE.md` is **`AGENTS.md`**. Treat `AGENTS.md` as the source of truth.

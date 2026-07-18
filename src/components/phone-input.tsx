@@ -88,6 +88,7 @@ type PhoneInputProps = {
   id?: string;
   onChange: (e164: string) => void;
   defaultCountry?: CountryCode;
+  initialValue?: string;
   invalid?: boolean;
   disabled?: boolean;
   className?: string;
@@ -97,24 +98,31 @@ export function PhoneInput({
   id,
   onChange,
   defaultCountry,
+  initialValue,
   invalid,
   disabled,
   className,
 }: PhoneInputProps) {
+  const initial = useMemo(
+    () => (initialValue ? parsePhoneNumberFromString(initialValue) : undefined),
+    [initialValue],
+  );
   const [detectedCountry, setDetectedCountry] = useState<CountryCode | null>(
     null,
   );
   const [selectedCountry, setSelectedCountry] = useState<CountryCode | null>(
-    null,
+    initial?.country ?? null,
   );
-  const [nationalNumber, setNationalNumber] = useState("");
+  const [nationalNumber, setNationalNumber] = useState(
+    initial?.nationalNumber ?? "",
+  );
 
   const country =
     selectedCountry ?? defaultCountry ?? detectedCountry ?? DEFAULT_COUNTRY;
 
   // Auto-detect the country from the visitor's IP (falls back to locale).
   useEffect(() => {
-    if (defaultCountry) {
+    if (defaultCountry || initial?.country) {
       return;
     }
     let cancelled = false;
@@ -134,7 +142,7 @@ export function PhoneInput({
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [defaultCountry]);
+  }, [defaultCountry, initial]);
 
   // Hold the latest onChange in a ref so the emit effect below doesn't refire
   // on every parent re-render (inline callbacks change identity each render,

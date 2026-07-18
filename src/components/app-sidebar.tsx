@@ -22,6 +22,7 @@ import {
   BookOpenIcon,
   ArmchairIcon,
   BoxesIcon,
+  UsersIcon,
   Settings2Icon,
   CircleHelpIcon,
 } from "lucide-react"
@@ -33,6 +34,7 @@ const navMain = [
   { title: "Menu", url: "/dashboard/menu", icon: <BookOpenIcon /> },
   { title: "Tables", url: "/dashboard/tables", icon: <ArmchairIcon /> },
   { title: "Inventory", url: "/dashboard/inventory", icon: <BoxesIcon /> },
+  { title: "Staff", url: "/dashboard/staff", icon: <UsersIcon /> },
 ]
 
 const navSecondary = [

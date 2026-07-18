@@ -170,6 +170,7 @@ model Restaurant {
   images         RestaurantImage[]
   videos         RestaurantVideo[]
   stockItems     StockItem[]
+  staff          Staff[]
 
   @@index([ownerId])
   @@index([isActive])
@@ -579,4 +580,64 @@ model RecipeComponent {
   @@unique([menuItemId, stockItemId])
   @@index([menuItemId])
   @@index([stockItemId])
+}
+
+enum StaffRole {
+  WAITER
+  KITCHEN
+  MANAGEMENT
+}
+
+enum StaffStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+/// A restaurant staff member (directory + POS PIN). Sensitive HR data (salary,
+/// bank, ID proof) is deliberately out of scope. PIN is stored hashed only.
+model Staff {
+  id                    String          @id @default(cuid())
+  restaurantId          String
+  employeeCode          String
+  name                  String
+  role                  StaffRole
+  status                StaffStatus     @default(ACTIVE)
+  photoUrl              String?
+  phone                 String
+  email                 String?
+  addressLine1          String?
+  addressLine2          String?
+  city                  String?
+  state                 String?
+  postalCode            String?
+  dateOfBirth           DateTime?
+  gender                Gender?
+  joiningDate           DateTime?
+  employmentType        EmploymentType?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes                 String?
+  pinHash               String
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  deletedAt             DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@unique([restaurantId, employeeCode])
+  @@unique([restaurantId, pinHash])
+  @@index([restaurantId])
 }
