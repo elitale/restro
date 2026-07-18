@@ -4,11 +4,36 @@ vi.mock("@/lib/admin-auth", () => ({ getAdminContextOrNull: vi.fn() }));
 vi.mock("@/lib/manager-auth", () => ({ getManagerContextOrNull: vi.fn() }));
 vi.mock("@/services/restaurant-settings.service", () => ({
   updateTaxProfile: vi.fn(),
+  updateRestaurantProfile: vi.fn(),
+}));
+vi.mock("@/services/restaurant-image.service", () => ({
+  addGalleryImage: vi.fn(),
+  removeCover: vi.fn(),
+  removeGalleryImage: vi.fn(),
+  removeLogo: vi.fn(),
+  uploadCover: vi.fn(),
+  uploadLogo: vi.fn(),
+}));
+vi.mock("@/services/restaurant-video.service", () => ({
+  addVideoLink: vi.fn(),
+  removeVideo: vi.fn(),
+  uploadVideoFile: vi.fn(),
 }));
 
 import { getManagerContextOrNull } from "@/lib/manager-auth";
-import { updateTaxProfile } from "@/services/restaurant-settings.service";
-import { updateTaxProfileAction } from "./settings.actions";
+import { removeGalleryImage } from "@/services/restaurant-image.service";
+import {
+  updateRestaurantProfile,
+  updateTaxProfile,
+} from "@/services/restaurant-settings.service";
+import { addVideoLink, removeVideo } from "@/services/restaurant-video.service";
+import {
+  addVideoLinkAction,
+  removeGalleryImageAction,
+  removeVideoAction,
+  updateRestaurantProfileAction,
+  updateTaxProfileAction,
+} from "./settings.actions";
 
 describe("updateTaxProfileAction", () => {
   beforeEach(() => {
@@ -51,5 +76,102 @@ describe("updateTaxProfileAction", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("NO_RESTAURANT");
+  });
+});
+
+const validProfile = {
+  name: "Spice Route",
+  serviceDineIn: true,
+  serviceTakeaway: true,
+  serviceDelivery: false,
+};
+
+describe("restaurant profile actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getManagerContextOrNull).mockResolvedValue({
+      userId: "u1",
+      restaurantId: "res_1",
+    });
+  });
+
+  it("updateRestaurantProfileAction delegates with the restaurant id", async () => {
+    const result = await updateRestaurantProfileAction(validProfile);
+
+    expect(result.success).toBe(true);
+    expect(updateRestaurantProfile).toHaveBeenCalledWith(
+      "res_1",
+      expect.objectContaining({ name: "Spice Route" }),
+    );
+  });
+
+  it("rejects when no service option is enabled", async () => {
+    const result = await updateRestaurantProfileAction({
+      ...validProfile,
+      serviceDineIn: false,
+      serviceTakeaway: false,
+      serviceDelivery: false,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.fieldErrors).toBeDefined();
+    expect(updateRestaurantProfile).not.toHaveBeenCalled();
+  });
+
+  it("rejects a default pointing at a disabled service option", async () => {
+    const result = await updateRestaurantProfileAction({
+      ...validProfile,
+      serviceTakeaway: false,
+      defaultOrderType: "TAKEAWAY",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.fieldErrors).toBeDefined();
+    expect(updateRestaurantProfile).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid FSSAI licence", async () => {
+    const result = await updateRestaurantProfileAction({
+      ...validProfile,
+      fssaiLicense: "123",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.fieldErrors).toBeDefined();
+  });
+
+  it("removeGalleryImageAction delegates the image id", async () => {
+    const result = await removeGalleryImageAction({ imageId: "gi1" });
+
+    expect(result.success).toBe(true);
+    expect(removeGalleryImage).toHaveBeenCalledWith("res_1", "gi1");
+  });
+
+  it("addVideoLinkAction delegates the url + caption", async () => {
+    const result = await addVideoLinkAction({
+      url: "https://youtu.be/abc",
+      caption: "Our story",
+    });
+
+    expect(result.success).toBe(true);
+    expect(addVideoLink).toHaveBeenCalledWith(
+      "res_1",
+      "https://youtu.be/abc",
+      "Our story",
+    );
+  });
+
+  it("addVideoLinkAction rejects a non-URL", async () => {
+    const result = await addVideoLinkAction({ url: "not a link" });
+
+    expect(result.success).toBe(false);
+    expect(addVideoLink).not.toHaveBeenCalled();
+  });
+
+  it("removeVideoAction delegates the video id", async () => {
+    const result = await removeVideoAction({ id: "v1" });
+
+    expect(result.success).toBe(true);
+    expect(removeVideo).toHaveBeenCalledWith("res_1", "v1");
   });
 });

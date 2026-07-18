@@ -22,6 +22,7 @@ import { formatCurrency } from "@/lib/format";
 import { computeBill } from "@/services/billing";
 import type { MenuDTO, MenuItemDTO } from "@/types/menu";
 import type { OrderType } from "@/types/order";
+import type { ServiceOptions } from "@/types/settings";
 import type { TableDTO } from "@/types/table";
 
 import { CartLineList } from "./cart-line-list";
@@ -31,33 +32,44 @@ import { TablePicker } from "./table-picker";
 import { toBillLine } from "./types";
 import { useOrderCart } from "./use-order-cart";
 
-const ORDER_TYPES: readonly { value: OrderType; label: string }[] = [
-  { value: "DINE_IN", label: "Dine-in" },
-  { value: "TAKEAWAY", label: "Takeaway" },
-  { value: "DELIVERY", label: "Delivery" },
+const ORDER_TYPES: readonly {
+  value: OrderType;
+  label: string;
+  key: keyof ServiceOptions;
+}[] = [
+  { value: "DINE_IN", label: "Dine-in", key: "dineIn" },
+  { value: "TAKEAWAY", label: "Takeaway", key: "takeaway" },
+  { value: "DELIVERY", label: "Delivery", key: "delivery" },
 ];
 
 export function PosTerminal({
   menu,
   tables,
   occupied,
+  services,
 }: {
   readonly menu: MenuDTO;
   readonly tables: readonly TableDTO[];
   readonly occupied: Record<string, string>;
+  readonly services: ServiceOptions;
 }) {
   const router = useRouter();
   const orderCart = useOrderCart();
   const { cart } = orderCart;
-  const [orderType, setOrderType] = useState<OrderType>("TAKEAWAY");
+  const enabledTypes = ORDER_TYPES.filter((t) => services[t.key]);
+  const [orderType, setOrderType] = useState<OrderType>(
+    enabledTypes.find((t) => t.value === services.defaultType)?.value ??
+      enabledTypes[0]?.value ??
+      "TAKEAWAY",
+  );
   const [tableLabel, setTableLabel] = useState("");
   const [tableId, setTableId] = useState<string | null>(null);
   const [occupiedConfirm, setOccupiedConfirm] = useState<{
     table: TableDTO;
     orderId: string;
   } | null>(null);
-  const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [phoneSkipped, setPhoneSkipped] = useState(false);
   const [customerAddress, setCustomerAddress] = useState("");
   const [orderNote, setOrderNote] = useState("");
   const [configItem, setConfigItem] = useState<MenuItemDTO | null>(null);
@@ -76,8 +88,8 @@ export function PosTerminal({
     orderCart.clear();
     setTableLabel("");
     setTableId(null);
-    setCustomerName("");
     setCustomerPhone("");
+    setPhoneSkipped(false);
     setCustomerAddress("");
     setOrderNote("");
   };
@@ -107,9 +119,14 @@ export function PosTerminal({
     onError: (message) => toast.error(message),
   });
 
+  const phoneMissing = !phoneSkipped && customerPhone.trim().length === 0;
   const deliveryNeedsAddress =
     orderType === "DELIVERY" && customerAddress.trim().length === 0;
-  const canSend = cart.length > 0 && !deliveryNeedsAddress && !createOrder.isPending;
+  const canSend =
+    cart.length > 0 &&
+    !phoneMissing &&
+    !deliveryNeedsAddress &&
+    !createOrder.isPending;
 
   const send = () => {
     if (!canSend) {
@@ -123,7 +140,6 @@ export function PosTerminal({
         orderType === "DINE_IN" && !tableId
           ? tableLabel.trim() || undefined
           : undefined,
-      customerName: customerName.trim() || undefined,
       customerPhone: customerPhone.trim() || undefined,
       customerAddress: customerAddress.trim() || undefined,
       note: orderNote.trim() || undefined,
@@ -138,6 +154,46 @@ export function PosTerminal({
     });
   };
 
+  const phoneField = (
+    <div className="flex items-center gap-2">
+      <Input
+        value={customerPhone}
+        onChange={(e) => {
+          setCustomerPhone(e.target.value);
+          if (phoneSkipped) {
+            setPhoneSkipped(false);
+          }
+        }}
+        placeholder={phoneSkipped ? "Phone skipped" : "Phone number (required)"}
+        inputMode="tel"
+        disabled={phoneSkipped}
+      />
+      {phoneSkipped ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => setPhoneSkipped(false)}
+        >
+          Undo
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="text-muted-foreground"
+          onClick={() => {
+            setPhoneSkipped(true);
+            setCustomerPhone("");
+          }}
+        >
+          Skip
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4 lg:flex-row lg:p-6">
       <section className="flex min-h-0 flex-1 flex-col">
@@ -146,52 +202,44 @@ export function PosTerminal({
 
       <aside className="flex min-h-0 w-full flex-col rounded-lg border lg:w-[360px]">
         <div className="flex flex-col gap-3 border-b p-3">
-          <div className="grid grid-cols-3 gap-1">
-            {ORDER_TYPES.map((t) => (
+          <div className="flex gap-1">
+            {enabledTypes.map((t) => (
               <Button
                 key={t.value}
                 size="sm"
                 variant={t.value === orderType ? "default" : "outline"}
                 onClick={() => setOrderType(t.value)}
+                className="flex-1"
               >
                 {t.label}
               </Button>
             ))}
           </div>
           {orderType === "DINE_IN" ? (
-            tables.length > 0 ? (
-              <TablePicker
-                tables={tables}
-                occupied={occupied}
-                selectedId={tableId}
-                onSelect={selectTable}
-              />
-            ) : (
-              <Field>
-                <FieldLabel htmlFor="pos-table">Table</FieldLabel>
-                <Input
-                  id="pos-table"
-                  value={tableLabel}
-                  onChange={(e) => setTableLabel(e.target.value)}
-                  placeholder="T1"
+            <div className="flex flex-col gap-2">
+              {tables.length > 0 ? (
+                <TablePicker
+                  tables={tables}
+                  occupied={occupied}
+                  selectedId={tableId}
+                  onSelect={selectTable}
                 />
-              </Field>
-            )
+              ) : (
+                <Field>
+                  <FieldLabel htmlFor="pos-table">Table</FieldLabel>
+                  <Input
+                    id="pos-table"
+                    value={tableLabel}
+                    onChange={(e) => setTableLabel(e.target.value)}
+                    placeholder="T1"
+                  />
+                </Field>
+              )}
+              {phoneField}
+            </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Customer name"
-                />
-                <Input
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="Phone"
-                  inputMode="tel"
-                />
-              </div>
+              {phoneField}
               {orderType === "DELIVERY" ? (
                 <Textarea
                   value={customerAddress}
@@ -243,9 +291,13 @@ export function PosTerminal({
           <Button size="lg" disabled={!canSend} onClick={send}>
             {createOrder.isPending
               ? "Sending…"
-              : deliveryNeedsAddress
-                ? "Add delivery address"
-                : `Send to kitchen · ${formatCurrency(bill.grandTotal)}`}
+              : cart.length === 0
+                ? `Send to kitchen · ${formatCurrency(bill.grandTotal)}`
+                : phoneMissing
+                  ? "Add phone number"
+                  : deliveryNeedsAddress
+                    ? "Add delivery address"
+                    : `Send to kitchen · ${formatCurrency(bill.grandTotal)}`}
           </Button>
         </div>
       </aside>

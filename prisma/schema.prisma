@@ -97,6 +97,18 @@ model User {
 }
 
 /// A restaurant onboarded onto the platform, owned by a manager (User).
+enum RestaurantFormat {
+  FINE_DINING
+  CASUAL_DINING
+  QSR
+  CAFE
+  CLOUD_KITCHEN
+  BAR
+  BAKERY
+  FOOD_TRUCK
+  OTHER
+}
+
 model Restaurant {
   id          String    @id @default(cuid())
   name        String
@@ -115,6 +127,32 @@ model Restaurant {
   sacCode             String?             @default("996331")
   nextInvoiceSeq      Int                 @default(1)
 
+  // Business / brand profile
+  legalName        String?
+  tagline          String?
+  brandColor       String?
+  logoUrl          String?
+  coverUrl         String?
+  addressLine1     String?
+  addressLine2     String?
+  state            String?
+  postalCode       String?
+  website          String?
+  instagramUrl     String?
+  facebookUrl      String?
+  googleUrl        String?
+  restaurantFormat RestaurantFormat?
+  cuisines         String[]           @default([])
+  seatingCapacity  Int?
+  fssaiLicense     String?
+  fssaiExpiry      DateTime?
+  panNumber        String?
+  serviceDineIn    Boolean            @default(true)
+  serviceTakeaway  Boolean            @default(true)
+  serviceDelivery  Boolean            @default(false)
+  defaultOrderType OrderType          @default(TAKEAWAY)
+  businessHours    Json?
+
   isActive    Boolean   @default(true)
   onboardedAt DateTime  @default(now())
   createdAt   DateTime  @default(now())
@@ -129,9 +167,46 @@ model Restaurant {
   modifierGroups ModifierGroup[]
   orders         Order[]
   tables         DiningTable[]
+  images         RestaurantImage[]
+  videos         RestaurantVideo[]
 
   @@index([ownerId])
   @@index([isActive])
+}
+
+/// A restaurant gallery image (Supabase Storage). Logo/cover are columns on
+/// Restaurant; these are the extra showcase photos.
+model RestaurantImage {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  url          String
+  storageKey   String
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@index([restaurantId])
+}
+
+enum VideoKind {
+  LINK
+  FILE
+}
+
+/// A restaurant showcase video — either an external LINK (YouTube/Instagram/
+/// Vimeo) or an uploaded FILE in Supabase Storage. Profile-only (never on bills).
+model RestaurantVideo {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  kind         VideoKind
+  url          String
+  storageKey   String?
+  caption      String?
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@index([restaurantId])
 }
 
 /// One-time passcode challenge for phone (SMS) login. Codes are stored hashed.

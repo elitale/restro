@@ -37,6 +37,80 @@ export const updateRestaurantTaxProfile = (
 ): Promise<Restaurant> =>
   prisma.restaurant.update({ where: { id }, data });
 
+/** Generic profile/branding update (Restaurant columns). */
+export const updateRestaurant = (
+  id: string,
+  data: Prisma.RestaurantUpdateInput,
+): Promise<Restaurant> => prisma.restaurant.update({ where: { id }, data });
+
+export interface RestaurantImageWriteData {
+  restaurantId: string;
+  url: string;
+  storageKey: string;
+  sortOrder: number;
+}
+
+export const createRestaurantImage = (data: RestaurantImageWriteData) =>
+  prisma.restaurantImage.create({
+    data: {
+      restaurant: { connect: { id: data.restaurantId } },
+      url: data.url,
+      storageKey: data.storageKey,
+      sortOrder: data.sortOrder,
+    },
+  });
+
+export const findRestaurantImageById = (id: string) =>
+  prisma.restaurantImage.findUnique({ where: { id } });
+
+export const findRestaurantImages = (restaurantId: string) =>
+  prisma.restaurantImage.findMany({
+    where: { restaurantId },
+    orderBy: { sortOrder: "asc" },
+  });
+
+export const countRestaurantImages = (restaurantId: string): Promise<number> =>
+  prisma.restaurantImage.count({ where: { restaurantId } });
+
+export const deleteRestaurantImage = (id: string) =>
+  prisma.restaurantImage.delete({ where: { id } });
+
+export interface RestaurantVideoWriteData {
+  restaurantId: string;
+  kind: "LINK" | "FILE";
+  url: string;
+  storageKey: string | null;
+  caption: string | null;
+  sortOrder: number;
+}
+
+export const createRestaurantVideo = (data: RestaurantVideoWriteData) =>
+  prisma.restaurantVideo.create({
+    data: {
+      restaurant: { connect: { id: data.restaurantId } },
+      kind: data.kind,
+      url: data.url,
+      storageKey: data.storageKey,
+      caption: data.caption,
+      sortOrder: data.sortOrder,
+    },
+  });
+
+export const findRestaurantVideos = (restaurantId: string) =>
+  prisma.restaurantVideo.findMany({
+    where: { restaurantId },
+    orderBy: { sortOrder: "asc" },
+  });
+
+export const findRestaurantVideoById = (id: string) =>
+  prisma.restaurantVideo.findUnique({ where: { id } });
+
+export const countRestaurantVideos = (restaurantId: string): Promise<number> =>
+  prisma.restaurantVideo.count({ where: { restaurantId } });
+
+export const deleteRestaurantVideo = (id: string) =>
+  prisma.restaurantVideo.delete({ where: { id } });
+
 const RESTAURANT_LIST_SELECT = {
   id: true,
   name: true,

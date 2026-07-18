@@ -57,6 +57,19 @@ Dining-tables CRUD + POS dine-in picker (plan: `.plan/tables.md`, planned with b
 
 ---
 
+## Settings — Restaurant Profile (2026-07-18) — COMPLETE
+
+Upgraded `/dashboard/settings` from a lone GST card into a full **restaurant profile** (plan: `.plan/settings-profile.md`, planned with buyer + staff agents). Agents' hard rules baked in: **FSSAI licence prints on the bill (legal)**, **brand name ≠ legal entity name** (both needed; legal name on the GST invoice), **PAN never printed**, **service options must actually drive the POS**.
+
+- **Schema (`add_restaurant_profile` migration):** `RestaurantFormat` enum; `Restaurant` gained legalName, tagline, brandColor, logoUrl, coverUrl, address (line1/2, state, postalCode), website + socials (instagram/facebook/google), restaurantFormat, `cuisines String[]`, seatingCapacity, fssaiLicense, fssaiExpiry, panNumber, `serviceDineIn/Takeaway/Delivery` (booleans), `businessHours Json`. New `RestaurantImage` model (gallery, cap 8). Logo/cover = fixed storage keys + cache-busted url; gallery = per-image key. **Videos (follow-up):** `VideoKind` enum + `RestaurantVideo` model (external LINK or uploaded FILE, cap 6, profile-only); Server Action `bodySizeLimit` raised to 30 MB in `next.config.ts` (default 1 MB would have blocked >1 MB image/video uploads).
+- **Layers:** `validators/restaurant.ts` (`updateProfileSchema` — FSSAI `\d{14}`, PAN, hours ×7, `≥1` service option; `businessHoursSchema`); `restaurant.repository` (`updateRestaurant`, gallery CRUD); `restaurant-settings.service` (`getRestaurantProfile`/`updateRestaurantProfile`/`getServiceOptions`/`fssaiStatus`); `restaurant-image.service` (sharp→WebP + Supabase Storage: logo/cover/gallery); `settings.actions` (profile + FormData image actions via a shared `runFileUpload` helper). `lib/business-hours.ts` + `lib/restaurant-format.ts` are client-safe.
+- **UI:** `components/settings/` — `profile-header` (cover banner + circular logo + completeness chip), `restaurant-profile-form` (identity / location+contact / compliance / service+hours / details, one Save), `logo-uploader`/`cover-uploader`/`gallery-manager`/`videos-manager` (immediate upload via `use-image-upload` hook; videos also accept links, YouTube/Vimeo embedded via `lib/video.ts`), `business-hours-field`, `service-options-field`. FSSAI expiry shows amber/red warning. Reuses the existing `tax-settings-form`.
+- **Integrations:** **Invoice** now prints logo (capped) + brand name + **legal entity name** + full address + **FSSAI No.** (+ existing GSTIN). **POS** order-type buttons are filtered to the enabled service options (cloud kitchen → delivery only); the **owner-chosen default** (Service options → “Default”, column `Restaurant.defaultOrderType`, refine: must be an enabled option) is pre-selected in the POS, falling back to the first enabled type.
+- **Tests:** 228 pass (was 210). tsc + eslint clean. New specs: restaurant repo (profile + gallery), settings service (profile/fssaiStatus/serviceOptions), image service (sharp/storage mocks), settings actions. **Gotcha:** the 3 `makeRestaurant` fixtures (restaurant.repository/service, restaurant-settings.service specs) needed all new columns added.
+- **Deferred:** multi-outlet per-outlet GSTIN/FSSAI, multi-brand-per-kitchen, region-aware compliance, service-charge %, reservations, autosave, "open now" from hours.
+
+---
+
 ## Current Codebase State (2026-07-18)
 
 - `src/app/` — root `layout.tsx`/`page.tsx`/`globals.css`; `login/` (phone-first login); **`admin/`** — `layout.tsx` (admin-gated), `page.tsx` (overview), `users/`, `restaurants/` (+ `new/` onboard)

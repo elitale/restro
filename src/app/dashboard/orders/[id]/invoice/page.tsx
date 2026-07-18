@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -52,6 +53,14 @@ export default async function InvoicePage({
   const cgst = round2(order.taxTotal / 2);
   const sgst = round2(order.taxTotal - cgst);
   const lines = order.lines.filter((l) => l.state !== "VOID");
+  const addressLine = [
+    restaurant.addressLine1,
+    restaurant.addressLine2,
+    [restaurant.city, restaurant.state].filter(Boolean).join(", "),
+    restaurant.postalCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div className="mx-auto max-w-sm p-6 text-sm">
@@ -63,11 +72,26 @@ export default async function InvoicePage({
       </div>
 
       <div className="text-center">
+        {restaurant.logoUrl ? (
+          <Image
+            src={restaurant.logoUrl}
+            alt=""
+            width={56}
+            height={56}
+            className="mx-auto mb-1 size-14 rounded object-contain"
+          />
+        ) : null}
         <h1 className="text-lg font-bold">{restaurant.name}</h1>
-        {restaurant.city ? <p className="text-xs">{restaurant.city}</p> : null}
+        {restaurant.legalName ? (
+          <p className="text-xs">{restaurant.legalName}</p>
+        ) : null}
+        {addressLine ? <p className="text-xs">{addressLine}</p> : null}
         {restaurant.phone ? <p className="text-xs">{restaurant.phone}</p> : null}
         {registered && restaurant.gstin ? (
           <p className="text-xs">GSTIN: {restaurant.gstin}</p>
+        ) : null}
+        {restaurant.fssaiLicense ? (
+          <p className="text-xs">FSSAI: {restaurant.fssaiLicense}</p>
         ) : null}
         <p className="mt-2 font-semibold">
           {registered ? "TAX INVOICE" : "BILL OF SUPPLY"}

@@ -2,23 +2,46 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Restaurant } from "@/generated/prisma/client";
 
-const { create, findUnique, findMany, count, update } = vi.hoisted(() => ({
+const {
+  create,
+  findUnique,
+  findMany,
+  count,
+  update,
+  imageCreate,
+  imageDelete,
+  videoCreate,
+  videoDelete,
+} = vi.hoisted(() => ({
   create: vi.fn(),
   findUnique: vi.fn(),
   findMany: vi.fn(),
   count: vi.fn(),
   update: vi.fn(),
+  imageCreate: vi.fn(),
+  imageDelete: vi.fn(),
+  videoCreate: vi.fn(),
+  videoDelete: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { restaurant: { create, findUnique, findMany, count, update } },
+  prisma: {
+    restaurant: { create, findUnique, findMany, count, update },
+    restaurantImage: { create: imageCreate, delete: imageDelete },
+    restaurantVideo: { create: videoCreate, delete: videoDelete },
+  },
 }));
 
 import {
   countRestaurants,
   createRestaurant,
+  createRestaurantImage,
+  createRestaurantVideo,
+  deleteRestaurantImage,
+  deleteRestaurantVideo,
   findRestaurantBySlug,
   findRestaurantsPaginated,
+  updateRestaurant,
   updateRestaurantTaxProfile,
 } from "./restaurant.repository";
 
@@ -37,6 +60,30 @@ const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   gstin: null,
   sacCode: "996331",
   nextInvoiceSeq: 1,
+  legalName: null,
+  tagline: null,
+  brandColor: null,
+  logoUrl: null,
+  coverUrl: null,
+  addressLine1: null,
+  addressLine2: null,
+  state: null,
+  postalCode: null,
+  website: null,
+  instagramUrl: null,
+  facebookUrl: null,
+  googleUrl: null,
+  restaurantFormat: null,
+  cuisines: [],
+  seatingCapacity: null,
+  fssaiLicense: null,
+  fssaiExpiry: null,
+  panNumber: null,
+  serviceDineIn: true,
+  serviceTakeaway: true,
+  serviceDelivery: false,
+  defaultOrderType: "TAKEAWAY",
+  businessHours: null,
   isActive: true,
   onboardedAt: new Date("2026-01-01T00:00:00.000Z"),
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -125,5 +172,71 @@ describe("restaurantRepository", () => {
         serviceGstRate: 5,
       }),
     });
+  });
+
+  it("updateRestaurant writes profile fields by id", async () => {
+    update.mockResolvedValue({});
+
+    await updateRestaurant("res_1", { legalName: "Acme Pvt Ltd" });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "res_1" },
+      data: { legalName: "Acme Pvt Ltd" },
+    });
+  });
+
+  it("createRestaurantImage connects the restaurant", async () => {
+    imageCreate.mockResolvedValue({ id: "gi1" });
+
+    await createRestaurantImage({
+      restaurantId: "res_1",
+      url: "https://cdn.test/g",
+      storageKey: "restaurants/res_1/gallery-x.webp",
+      sortOrder: 0,
+    });
+
+    expect(imageCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        restaurant: { connect: { id: "res_1" } },
+        storageKey: "restaurants/res_1/gallery-x.webp",
+      }),
+    });
+  });
+
+  it("deleteRestaurantImage deletes by id", async () => {
+    imageDelete.mockResolvedValue({});
+
+    await deleteRestaurantImage("gi1");
+
+    expect(imageDelete).toHaveBeenCalledWith({ where: { id: "gi1" } });
+  });
+
+  it("createRestaurantVideo connects the restaurant", async () => {
+    videoCreate.mockResolvedValue({ id: "v1" });
+
+    await createRestaurantVideo({
+      restaurantId: "res_1",
+      kind: "LINK",
+      url: "https://youtu.be/abc",
+      storageKey: null,
+      caption: null,
+      sortOrder: 0,
+    });
+
+    expect(videoCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        restaurant: { connect: { id: "res_1" } },
+        kind: "LINK",
+        url: "https://youtu.be/abc",
+      }),
+    });
+  });
+
+  it("deleteRestaurantVideo deletes by id", async () => {
+    videoDelete.mockResolvedValue({});
+
+    await deleteRestaurantVideo("v1");
+
+    expect(videoDelete).toHaveBeenCalledWith({ where: { id: "v1" } });
   });
 });
