@@ -11,6 +11,32 @@ export const findRestaurantBySlug = (
 ): Promise<Restaurant | null> =>
   prisma.restaurant.findUnique({ where: { slug } });
 
+export const findRestaurantById = (id: string): Promise<Restaurant | null> =>
+  prisma.restaurant.findUnique({ where: { id } });
+
+/** The manager's primary (oldest active) restaurant — v1 is single-outlet. */
+export const findFirstRestaurantByOwner = (
+  ownerId: string,
+): Promise<Restaurant | null> =>
+  prisma.restaurant.findFirst({
+    where: { ownerId, deletedAt: null },
+    orderBy: { createdAt: "asc" },
+  });
+
+export interface TaxProfileWriteData {
+  gstRegistrationType: "REGULAR" | "COMPOSITION" | "UNREGISTERED";
+  serviceGstRate: number | null;
+  pricesTaxInclusive: boolean;
+  gstin: string | null;
+  sacCode: string | null;
+}
+
+export const updateRestaurantTaxProfile = (
+  id: string,
+  data: TaxProfileWriteData,
+): Promise<Restaurant> =>
+  prisma.restaurant.update({ where: { id }, data });
+
 const RESTAURANT_LIST_SELECT = {
   id: true,
   name: true,

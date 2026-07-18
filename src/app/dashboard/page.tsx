@@ -1,30 +1,13 @@
-import { logoutAction } from "@/actions/auth.actions";
-import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
-import { requireUserId } from "@/lib/auth-helpers";
-import { getManagerById } from "@/services/user.service";
+import { SectionCards } from "@/components/section-cards"
 
-export default async function DashboardPage() {
-  const userId = await requireUserId();
-  const user = await getManagerById(userId);
-
+export default function Page() {
   return (
-    <div className="mx-auto flex min-h-svh max-w-3xl flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <PageHeader
-          title={user?.name ? `Welcome, ${user.name}` : "Welcome"}
-          description="Your ElitaleRestro dashboard."
-        />
-        <form action={logoutAction}>
-          <Button type="submit" variant="outline">
-            Sign out
-          </Button>
-        </form>
-      </div>
-      <div className="rounded-lg border p-6">
-        <p className="text-muted-foreground text-sm">Signed in as</p>
-        <p className="font-medium">{user?.phone ?? userId}</p>
+    <div className="flex flex-1 flex-col">
+      <div className="@container/main flex flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+          <SectionCards />
+        </div>
       </div>
     </div>
-  );
+  )
 }

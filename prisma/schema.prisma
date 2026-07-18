@@ -18,6 +18,30 @@ enum UserRole {
   SUPER_ADMIN
 }
 
+enum GstRegistrationType {
+  REGULAR
+  COMPOSITION
+  UNREGISTERED
+}
+
+enum MenuItemType {
+  SERVED
+  PACKAGED_GOODS
+}
+
+enum DietaryType {
+  VEG
+  NON_VEG
+  EGG
+}
+
+enum Disable86Reason {
+  OUT_OF_STOCK
+  QUALITY
+  PREP_TIME
+  OTHER
+}
+
 /// Restaurant manager / operator account.
 /// Phone number is the primary identifier used to sign in; email is optional
 /// and can be added later for notifications (Resend).
@@ -50,6 +74,14 @@ model Restaurant {
   city        String?
   country     String    @default("IN")
   timezone    String?
+
+  // GST / tax profile (opt-in; drives the correct default tax at billing time)
+  gstRegistrationType GstRegistrationType @default(UNREGISTERED)
+  serviceGstRate      Decimal?            @db.Decimal(5, 2)
+  pricesTaxInclusive  Boolean             @default(false)
+  gstin               String?
+  sacCode             String?             @default("996331")
+
   isActive    Boolean   @default(true)
   onboardedAt DateTime  @default(now())
   createdAt   DateTime  @default(now())
@@ -58,6 +90,10 @@ model Restaurant {
 
   ownerId String
   owner   User   @relation("RestaurantOwner", fields: [ownerId], references: [id])
+
+  categories     MenuCategory[]
+  menuItems      MenuItem[]
+  modifierGroups ModifierGroup[]
 
   @@index([ownerId])
   @@index([isActive])
@@ -74,4 +110,154 @@ model OtpChallenge {
   createdAt  DateTime  @default(now())
 
   @@index([phone])
+}
+
+/// A menu section (Starters, Mains, Beverages…). Owned by a Restaurant.
+model MenuCategory {
+  id           String    @id @default(cuid())
+  restaurantId String
+  name         String
+  description  String?
+  sortOrder    Int       @default(0)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  items      MenuItem[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId])
+}
+
+/// A sellable menu item. `price` is the base/default; variants (if any) are the
+/// sellable units. Tax is resolved from the Restaurant profile unless the item
+/// is PACKAGED_GOODS with its own goodsGstRate.
+model MenuItem {
+  id                String       @id @default(cuid())
+  restaurantId      String
+  categoryId        String
+  name              String
+  shortDescription  String?
+  longDescription   String?
+  itemType          MenuItemType @default(SERVED)
+  dietaryType       DietaryType?
+  price             Decimal      @db.Decimal(10, 2)
+  priceTaxInclusive Boolean?
+  goodsGstRate      Decimal?     @db.Decimal(5, 2)
+  hsnSacCode        String?
+  sortOrder         Int          @default(0)
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  deletedAt         DateTime?
+
+  restaurant     Restaurant              @relation(fields: [restaurantId], references: [id])
+  category       MenuCategory            @relation(fields: [categoryId], references: [id])
+  images         MenuItemImage[]
+  disables       MenuItemAvailability[]
+  variants       MenuItemVariant[]
+  modifierGroups MenuItemModifierGroup[]
+
+  @@index([restaurantId])
+  @@index([categoryId])
+}
+
+/// Uploaded photo for a menu item (stored in Supabase Storage).
+model MenuItemImage {
+  id         String   @id @default(cuid())
+  menuItemId String
+  url        String
+  storageKey String
+  isPrimary  Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+}
+
+/// A time-boxed "86" (disable) event for an item; also the availability audit log.
+model MenuItemAvailability {
+  id            String          @id @default(cuid())
+  menuItemId    String
+  reason        Disable86Reason
+  note          String?
+  disabledById  String
+  disabledAt    DateTime        @default(now())
+  resumeAt      DateTime?
+  reenabledAt   DateTime?
+  reenabledById String?
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+}
+
+/// A size/portion variant of an item (Half/Full, S/M/L) with its own price.
+model MenuItemVariant {
+  id         String    @id @default(cuid())
+  menuItemId String
+  name       String
+  price      Decimal   @db.Decimal(10, 2)
+  sortOrder  Int       @default(0)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+}
+
+/// A reusable group of add-ons ("Milk", "Add-ons") attachable to many items.
+model ModifierGroup {
+  id           String    @id @default(cuid())
+  restaurantId String
+  name         String
+  minSelect    Int       @default(0)
+  maxSelect    Int       @default(1)
+  isRequired   Boolean   @default(false)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  restaurant Restaurant              @relation(fields: [restaurantId], references: [id])
+  modifiers  Modifier[]
+  items      MenuItemModifierGroup[]
+
+  @@index([restaurantId])
+}
+
+/// A single add-on option within a ModifierGroup, with a price delta.
+model Modifier {
+  id         String   @id @default(cuid())
+  groupId    String
+  name       String
+  priceDelta Decimal  @default(0) @db.Decimal(10, 2)
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  group ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+}
+
+/// Join: which modifier groups apply to which items (groups are reusable).
+model MenuItemModifierGroup {
+  menuItemId      String
+  modifierGroupId String
+  sortOrder       Int    @default(0)
+
+  menuItem      MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, modifierGroupId])
+  @@index([modifierGroupId])
 }

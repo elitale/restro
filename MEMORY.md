@@ -12,6 +12,23 @@
 
 ---
 
+## Menu Management (2026-07-18) — COMPLETE
+
+Full menu CRUD shipped (plan: `.plan/menu-crud.md`, planned with buyer + staff agents). Bottom-up, TDD.
+
+- **Schema:** enums `GstRegistrationType`/`MenuItemType`/`DietaryType`/`Disable86Reason`; `Restaurant` tax profile (`gstRegistrationType` default **UNREGISTERED**, `serviceGstRate?`, `pricesTaxInclusive`, `gstin`, `sacCode`); models `MenuCategory`, `MenuItem`, `MenuItemImage`, `MenuItemAvailability` (the 86 = audit log), `MenuItemVariant`, `ModifierGroup`, `Modifier`, `MenuItemModifierGroup`. Migration `add_menu` applied.
+- **Tax (corrected + optional):** `resolveItemTax()` — UNREGISTERED→no GST; served→outlet service rate; PACKAGED_GOODS→own `goodsGstRate`+HSN; COMPOSITION→not-separately-charged/inclusive. GST is opt-in.
+- **Availability:** `isItemAvailable()` computes from `isActive` + category + open 86; 86 has reason + who/when + optional `resumeAt` (auto-return after time passes; UI shows it). Manager-only (no POS/KDS surface yet).
+- **Variants + modifiers** (half/full, add-ons) included in v1. Reusable modifier groups via join.
+- **Images:** Supabase Storage (S3 via `@aws-sdk/client-s3`, env `SUPABASE_S3_*` incl. `SUPABASE_S3_SECRET_KEY`), `sharp`→WebP ≤1600px, ≤3/item, ≤5 MB. `lib/storage.ts` + `services/menu-image.service.ts`.
+- **Layers:** `lib/validators/menu.ts`; repos `menu-category`/`menu-item`/`menu-item-image`/`modifier-group`/`menu-availability`; services `menu-item`(tax+availability+`getMenu`→`MenuDTO`)/`menu-category`/`modifier`/`menu-availability`/`menu-image`; `lib/manager-auth.ts` (`getManagerContextOrNull`) + `withManagerValidation`; `actions/menu.actions.ts`.
+- **UI:** `/dashboard/menu` (server) → `components/menu/` (`menu-manager`, `item-dialog`, `category-dialog`, `eighty-six-dialog`, `modifier-groups-dialog`, `image-manager`). shadcn (`dialog`/`switch`/`textarea` added) + `useServerAction` + `sonner`. Dashboard sidebar refactored: `dashboard/layout.tsx` holds the shell; sidebar "Menu" → `/dashboard/menu`. `next.config.ts` allows `*.storage.supabase.co` images.
+- **Gotcha:** enforced `react-hooks/set-state-in-effect` — dialogs mount-only-while-open (state from `useState` initializers, no reset effect). Adding `manager-auth` import to `helpers.ts` required mocking `@/lib/manager-auth` in existing action specs.
+- **Tests:** 146 pass (was 75). tsc + eslint clean.
+- **Deferred:** channel pricing, combos, multi-outlet, bulk CSV, POS/KDS/aggregator 86 surfaces, field-level audit.
+
+---
+
 ## Current Codebase State (2026-07-18)
 
 - `src/app/` — root `layout.tsx`/`page.tsx`/`globals.css`; `login/` (phone-first login); **`admin/`** — `layout.tsx` (admin-gated), `page.tsx` (overview), `users/`, `restaurants/` (+ `new/` onboard)

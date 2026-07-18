@@ -1,6 +1,7 @@
 import { z, type ZodError, type ZodType } from "zod";
 
 import { getAdminContextOrNull, type AdminContext } from "@/lib/admin-auth";
+import { getManagerContextOrNull, type ManagerContext } from "@/lib/manager-auth";
 import { failure, success, type ActionResult } from "@/types";
 
 const extractFieldErrors = (error: ZodError): Record<string, string[]> => {
@@ -65,6 +66,30 @@ export const withAdminValidation = <TSchema extends ZodType, TOutput>(
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       return failure<TOutput>("Validation failed", extractFieldErrors(parsed.error));
+    }
+    return runHandler<TOutput>(() => handler(parsed.data, ctx));
+  };
+};
+
+/** Require the manager's restaurant, validate input, then delegate to the handler. */
+export const withManagerValidation = <TSchema extends ZodType, TOutput>(
+  schema: TSchema,
+  handler: (
+    data: z.infer<TSchema>,
+    ctx: ManagerContext,
+  ) => Promise<ActionResult<TOutput>> | Promise<TOutput>,
+) => {
+  return async (raw: unknown): Promise<ActionResult<TOutput>> => {
+    const ctx = await getManagerContextOrNull();
+    if (!ctx) {
+      return failure<TOutput>("NO_RESTAURANT");
+    }
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      return failure<TOutput>(
+        "Validation failed",
+        extractFieldErrors(parsed.error),
+      );
     }
     return runHandler<TOutput>(() => handler(parsed.data, ctx));
   };

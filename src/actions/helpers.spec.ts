@@ -4,6 +4,9 @@ import { z } from "zod";
 vi.mock("@/lib/admin-auth", () => ({
   getAdminContextOrNull: vi.fn(),
 }));
+vi.mock("@/lib/manager-auth", () => ({
+  getManagerContextOrNull: vi.fn(),
+}));
 
 import { getAdminContextOrNull } from "@/lib/admin-auth";
 import { withAdminValidation, withValidation } from "./helpers";

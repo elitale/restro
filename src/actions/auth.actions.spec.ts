@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/admin-auth", () => ({
   getAdminContextOrNull: vi.fn(),
 }));
+vi.mock("@/lib/manager-auth", () => ({
+  getManagerContextOrNull: vi.fn(),
+}));
 vi.mock("@/services/auth.service", () => ({
   requestOtp: vi.fn(),
   verifyOtp: vi.fn(),

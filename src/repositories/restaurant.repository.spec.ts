@@ -2,15 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Restaurant } from "@/generated/prisma/client";
 
-const { create, findUnique, findMany, count } = vi.hoisted(() => ({
+const { create, findUnique, findMany, count, update } = vi.hoisted(() => ({
   create: vi.fn(),
   findUnique: vi.fn(),
   findMany: vi.fn(),
   count: vi.fn(),
+  update: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { restaurant: { create, findUnique, findMany, count } },
+  prisma: { restaurant: { create, findUnique, findMany, count, update } },
 }));
 
 import {
@@ -18,6 +19,7 @@ import {
   createRestaurant,
   findRestaurantBySlug,
   findRestaurantsPaginated,
+  updateRestaurantTaxProfile,
 } from "./restaurant.repository";
 
 const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
@@ -29,6 +31,11 @@ const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   city: null,
   country: "IN",
   timezone: null,
+  gstRegistrationType: "UNREGISTERED",
+  serviceGstRate: null,
+  pricesTaxInclusive: false,
+  gstin: null,
+  sacCode: "996331",
   isActive: true,
   onboardedAt: new Date("2026-01-01T00:00:00.000Z"),
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -97,5 +104,25 @@ describe("restaurantRepository", () => {
 
     expect(count).toHaveBeenCalledWith({ where: { deletedAt: null } });
     expect(result).toBe(5);
+  });
+
+  it("updateRestaurantTaxProfile writes the tax fields by id", async () => {
+    update.mockResolvedValue({});
+
+    await updateRestaurantTaxProfile("res_1", {
+      gstRegistrationType: "REGULAR",
+      serviceGstRate: 5,
+      pricesTaxInclusive: false,
+      gstin: null,
+      sacCode: "996331",
+    });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "res_1" },
+      data: expect.objectContaining({
+        gstRegistrationType: "REGULAR",
+        serviceGstRate: 5,
+      }),
+    });
   });
 });
