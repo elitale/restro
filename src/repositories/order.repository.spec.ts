@@ -77,6 +77,7 @@ describe("orderRepository", () => {
       idempotencyKey: "key12345",
       orderType: "TAKEAWAY",
       tableLabel: null,
+      tableId: null,
       customerName: null,
       customerPhone: null,
       customerAddress: null,

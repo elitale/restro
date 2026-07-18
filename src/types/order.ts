@@ -38,6 +38,7 @@ export interface OrderDTO {
   readonly orderType: OrderType;
   readonly status: OrderStatus;
   readonly tableLabel: string | null;
+  readonly tableId: string | null;
   readonly customerName: string | null;
   readonly customerPhone: string | null;
   readonly customerAddress: string | null;

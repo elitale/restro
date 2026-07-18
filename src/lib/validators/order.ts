@@ -24,6 +24,7 @@ export type CartLineInput = z.infer<typeof cartLineSchema>;
 export const createOrderSchema = z.object({
   orderType: orderTypeSchema.default("TAKEAWAY"),
   tableLabel: z.string().trim().max(40).optional(),
+  tableId: idSchema.optional(),
   customerName: z.string().trim().max(120).optional(),
   customerPhone: z.string().trim().max(20).optional(),
   customerAddress: z.string().trim().max(300).optional(),

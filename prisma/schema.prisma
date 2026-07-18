@@ -128,6 +128,7 @@ model Restaurant {
   menuItems      MenuItem[]
   modifierGroups ModifierGroup[]
   orders         Order[]
+  tables         DiningTable[]
 
   @@index([ownerId])
   @@index([isActive])
@@ -296,6 +297,27 @@ model MenuItemModifierGroup {
   @@index([modifierGroupId])
 }
 
+/// A physical dining table the floor seats guests at. Owned by a Restaurant.
+/// Soft-deleted (never hard-removed) so historical orders keep their link.
+model DiningTable {
+  id           String     @id @default(cuid())
+  restaurantId String
+  label        String
+  seats        Int?
+  section      String?
+  sortOrder    Int        @default(0)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  orders     Order[]
+
+  @@unique([restaurantId, label])
+  @@index([restaurantId])
+}
+
 /// A customer order (takeaway / dine-in tab / manual delivery). Stays OPEN and
 /// mutable until settled; lines snapshot price + tax so old bills never change.
 model Order {
@@ -307,6 +329,7 @@ model Order {
   orderType       OrderType    @default(TAKEAWAY)
   status          OrderStatus  @default(OPEN)
   tableLabel      String?
+  tableId         String?
   customerName    String?
   customerPhone   String?
   customerAddress String?
@@ -331,11 +354,13 @@ model Order {
   deletedAt  DateTime?
 
   restaurant Restaurant  @relation(fields: [restaurantId], references: [id])
+  table      DiningTable? @relation(fields: [tableId], references: [id])
   items      OrderItem[]
   payments   Payment[]
 
   @@unique([restaurantId, orderNumber])
   @@index([restaurantId, status])
+  @@index([tableId])
 }
 
 /// One line on an order — fully snapshotted from the menu at add time.

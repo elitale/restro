@@ -44,6 +44,19 @@ POS + order lifecycle + billing/settlement shipped (plan: `.plan/pos-orders.md`,
 
 ---
 
+## Tables (2026-07-18) — COMPLETE
+
+Dining-tables CRUD + POS dine-in picker (plan: `.plan/tables.md`, planned with buyer + staff agents). Both panels: a table list without **occupancy awareness** is "a prettier text box" — silently opening a 2nd order on an occupied table was the #1 abandon trigger.
+
+- **Schema (`add_tables` migration):** `DiningTable` (label unique per restaurant, `seats?`, `section?`, `sortOrder`, `isActive`, soft-delete `deletedAt`). `Restaurant.tables`. **`Order.tableId`** nullable FK + `table` relation + `@@index([tableId])` (real link, `tableLabel` kept as a snapshot).
+- **Layers:** `lib/validators/table.ts` (+ `createOrderSchema.tableId`); `table.repository.ts` (`findTableByLabel` via compound unique, `reviveTable`, soft-delete sets `isActive:false`); `table.service.ts` (`getTables`/`listTablesForManager`, `createTable` **revives a soft-deleted label** instead of erroring, `TABLE_LABEL_TAKEN`/`TABLE_FORBIDDEN`, `resolveTableForOrder`); `table.actions.ts`. `order.service.createOrder` resolves `tableId` → authoritative label + ownership.
+- **UI:** `/dashboard/tables` (`components/tables/`: `tables-manager` grouped by section + soft-delete confirm, `table-dialog`). POS Dine-in → `components/pos/table-picker.tsx` (section-grouped tappable buttons, occupied = amber dot; tapping an occupied table warns → *Open existing order* / *New order anyway*). Free-text table stays as fallback when no tables exist. `lib/tables.ts#groupTablesBySection` shared by manager + picker. POS page derives `occupied` (tableId→openOrderId) from `listOrders(["OPEN"])`.
+- **Sidebar:** **Tables** → `/dashboard/tables`.
+- **Tests:** 210 pass (was 193). tsc + eslint clean. New specs: table repo, table service (revive/ownership/label-clash), table actions, order.service `tableId` resolution.
+- **Deferred:** occupancy state machine (dirty/reserved/timers), table tabs/transfer/merge, reservations, floor-map, drag-reorder, bulk quick-add ("T1–T20"), multi-outlet clone.
+
+---
+
 ## Current Codebase State (2026-07-18)
 
 - `src/app/` — root `layout.tsx`/`page.tsx`/`globals.css`; `login/` (phone-first login); **`admin/`** — `layout.tsx` (admin-gated), `page.tsx` (overview), `users/`, `restaurants/` (+ `new/` onboard)

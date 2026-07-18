@@ -3,6 +3,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { getManagerContextOrNull } from "@/lib/manager-auth";
 import { getMenu } from "@/services/menu-item.service";
+import { listOrders } from "@/services/order.service";
+import { getTables } from "@/services/table.service";
 
 export default async function PosPage() {
   const ctx = await getManagerContextOrNull();
@@ -18,6 +20,18 @@ export default async function PosPage() {
     );
   }
 
-  const menu = await getMenu(ctx.restaurantId);
-  return <PosTerminal menu={menu} />;
+  const [menu, tables, openOrders] = await Promise.all([
+    getMenu(ctx.restaurantId),
+    getTables(ctx.restaurantId),
+    listOrders(ctx.restaurantId, ["OPEN"]),
+  ]);
+
+  const occupied: Record<string, string> = {};
+  for (const order of openOrders) {
+    if (order.tableId) {
+      occupied[order.tableId] = order.id;
+    }
+  }
+
+  return <PosTerminal menu={menu} tables={tables} occupied={occupied} />;
 }

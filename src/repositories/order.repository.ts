@@ -36,6 +36,7 @@ export interface CreateOrderData {
   idempotencyKey: string;
   orderType: "DINE_IN" | "TAKEAWAY" | "DELIVERY";
   tableLabel: string | null;
+  tableId: string | null;
   customerName: string | null;
   customerPhone: string | null;
   customerAddress: string | null;
@@ -80,6 +81,7 @@ export const createOrder = (
       idempotencyKey: data.idempotencyKey,
       orderType: data.orderType,
       tableLabel: data.tableLabel,
+      ...(data.tableId ? { table: { connect: { id: data.tableId } } } : {}),
       customerName: data.customerName,
       customerPhone: data.customerPhone,
       customerAddress: data.customerAddress,

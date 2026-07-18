@@ -21,6 +21,7 @@ import {
 } from "@/repositories/order.repository";
 import type { BillLineInput } from "@/services/billing";
 import { getMenu } from "@/services/menu-item.service";
+import { resolveTableForOrder } from "@/services/table.service";
 import type { MenuDTO } from "@/types/menu";
 import type { OrderDTO } from "@/types/order";
 
@@ -49,6 +50,7 @@ export const mapOrder = (o: OrderWithRelations): OrderDTO => ({
   orderType: o.orderType,
   status: o.status,
   tableLabel: o.tableLabel,
+  tableId: o.tableId,
   customerName: o.customerName,
   customerPhone: o.customerPhone,
   customerAddress: o.customerAddress,
@@ -183,12 +185,21 @@ export const createOrder = async (
   const items = snapshotLines(menu, input.items, 0, "FIRED");
   const orderNumber = (await maxOrderNumber(ctx.restaurantId)) + 1;
 
+  let tableId: string | null = null;
+  let tableLabel: string | null = input.tableLabel ?? null;
+  if (input.tableId) {
+    const table = await resolveTableForOrder(ctx.restaurantId, input.tableId);
+    tableId = table.id;
+    tableLabel = table.label;
+  }
+
   const order = await createOrderRepo({
     restaurantId: ctx.restaurantId,
     orderNumber,
     idempotencyKey: input.idempotencyKey,
     orderType: input.orderType,
-    tableLabel: input.tableLabel ?? null,
+    tableLabel,
+    tableId,
     customerName: input.customerName ?? null,
     customerPhone: input.customerPhone ?? null,
     customerAddress: input.customerAddress ?? null,

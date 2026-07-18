@@ -4,6 +4,7 @@ import type { OrderWithRelations } from "@/repositories/order.repository";
 import type { MenuDTO } from "@/types/menu";
 
 vi.mock("@/services/menu-item.service", () => ({ getMenu: vi.fn() }));
+vi.mock("@/services/table.service", () => ({ resolveTableForOrder: vi.fn() }));
 vi.mock("@/repositories/order.repository", () => ({
   addOrderItems: vi.fn(),
   createOrder: vi.fn(),
@@ -17,6 +18,7 @@ vi.mock("@/repositories/order.repository", () => ({
 }));
 
 import { getMenu } from "@/services/menu-item.service";
+import { resolveTableForOrder } from "@/services/table.service";
 import {
   addOrderItems,
   createOrder as createOrderRepo,
@@ -86,6 +88,7 @@ const makeOrder = (o: Partial<OrderWithRelations> = {}): OrderWithRelations =>
     orderType: "TAKEAWAY",
     status: "OPEN",
     tableLabel: null,
+    tableId: null,
     customerName: null,
     customerPhone: null,
     customerAddress: null,
@@ -179,6 +182,25 @@ describe("createOrder", () => {
         items: [{ menuItemId: "i1", quantity: 1, isComp: false, modifierIds: [] }],
       }),
     ).rejects.toThrow(ITEM_UNAVAILABLE);
+  });
+
+  it("resolves the authoritative table label from tableId", async () => {
+    vi.mocked(findOrderByIdempotencyKey).mockResolvedValue(null);
+    vi.mocked(maxOrderNumber).mockResolvedValue(4);
+    vi.mocked(resolveTableForOrder).mockResolvedValue({ id: "tbl_1", label: "T7" });
+
+    await createOrder(ctx, {
+      orderType: "DINE_IN",
+      idempotencyKey: "key12345",
+      tableId: "tbl_1",
+      tableLabel: "ignored",
+      items: [{ menuItemId: "i1", quantity: 1, isComp: false, modifierIds: [] }],
+    });
+
+    expect(resolveTableForOrder).toHaveBeenCalledWith("res_1", "tbl_1");
+    const arg = vi.mocked(createOrderRepo).mock.calls[0][0];
+    expect(arg.tableId).toBe("tbl_1");
+    expect(arg.tableLabel).toBe("T7");
   });
 });
 

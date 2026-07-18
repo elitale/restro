@@ -1,11 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { toast } from "sonner";
 
 import { createOrderAction } from "@/actions/order.actions";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,10 +22,12 @@ import { formatCurrency } from "@/lib/format";
 import { computeBill } from "@/services/billing";
 import type { MenuDTO, MenuItemDTO } from "@/types/menu";
 import type { OrderType } from "@/types/order";
+import type { TableDTO } from "@/types/table";
 
 import { CartLineList } from "./cart-line-list";
 import { ItemConfigDialog } from "./item-config-dialog";
 import { MenuItemGrid } from "./menu-item-grid";
+import { TablePicker } from "./table-picker";
 import { toBillLine } from "./types";
 import { useOrderCart } from "./use-order-cart";
 
@@ -27,11 +37,25 @@ const ORDER_TYPES: readonly { value: OrderType; label: string }[] = [
   { value: "DELIVERY", label: "Delivery" },
 ];
 
-export function PosTerminal({ menu }: { readonly menu: MenuDTO }) {
+export function PosTerminal({
+  menu,
+  tables,
+  occupied,
+}: {
+  readonly menu: MenuDTO;
+  readonly tables: readonly TableDTO[];
+  readonly occupied: Record<string, string>;
+}) {
+  const router = useRouter();
   const orderCart = useOrderCart();
   const { cart } = orderCart;
   const [orderType, setOrderType] = useState<OrderType>("TAKEAWAY");
   const [tableLabel, setTableLabel] = useState("");
+  const [tableId, setTableId] = useState<string | null>(null);
+  const [occupiedConfirm, setOccupiedConfirm] = useState<{
+    table: TableDTO;
+    orderId: string;
+  } | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -51,10 +75,20 @@ export function PosTerminal({ menu }: { readonly menu: MenuDTO }) {
   const resetOrder = () => {
     orderCart.clear();
     setTableLabel("");
+    setTableId(null);
     setCustomerName("");
     setCustomerPhone("");
     setCustomerAddress("");
     setOrderNote("");
+  };
+
+  const selectTable = (table: TableDTO) => {
+    const openOrderId = occupied[table.id];
+    if (openOrderId && table.id !== tableId) {
+      setOccupiedConfirm({ table, orderId: openOrderId });
+      return;
+    }
+    setTableId(table.id);
   };
 
   const createOrder = useServerAction(createOrderAction, {
@@ -84,7 +118,11 @@ export function PosTerminal({ menu }: { readonly menu: MenuDTO }) {
     createOrder.execute({
       orderType,
       idempotencyKey: crypto.randomUUID(),
-      tableLabel: tableLabel.trim() || undefined,
+      tableId: orderType === "DINE_IN" ? (tableId ?? undefined) : undefined,
+      tableLabel:
+        orderType === "DINE_IN" && !tableId
+          ? tableLabel.trim() || undefined
+          : undefined,
       customerName: customerName.trim() || undefined,
       customerPhone: customerPhone.trim() || undefined,
       customerAddress: customerAddress.trim() || undefined,
@@ -121,15 +159,24 @@ export function PosTerminal({ menu }: { readonly menu: MenuDTO }) {
             ))}
           </div>
           {orderType === "DINE_IN" ? (
-            <Field>
-              <FieldLabel htmlFor="pos-table">Table</FieldLabel>
-              <Input
-                id="pos-table"
-                value={tableLabel}
-                onChange={(e) => setTableLabel(e.target.value)}
-                placeholder="T1"
+            tables.length > 0 ? (
+              <TablePicker
+                tables={tables}
+                occupied={occupied}
+                selectedId={tableId}
+                onSelect={selectTable}
               />
-            </Field>
+            ) : (
+              <Field>
+                <FieldLabel htmlFor="pos-table">Table</FieldLabel>
+                <Input
+                  id="pos-table"
+                  value={tableLabel}
+                  onChange={(e) => setTableLabel(e.target.value)}
+                  placeholder="T1"
+                />
+              </Field>
+            )
           ) : (
             <div className="flex flex-col gap-2">
               <div className="grid grid-cols-2 gap-2">
@@ -213,6 +260,43 @@ export function PosTerminal({ menu }: { readonly menu: MenuDTO }) {
             }
           }}
         />
+      ) : null}
+
+      {occupiedConfirm ? (
+        <Dialog
+          open
+          onOpenChange={(open) => !open && setOccupiedConfirm(null)}
+        >
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>
+                {occupiedConfirm.table.label} has an open order
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-muted-foreground text-sm">
+              This table already has a running order. Open it to add a round, or
+              start a separate new order.
+            </p>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  router.push(`/dashboard/orders/${occupiedConfirm.orderId}`)
+                }
+              >
+                Open existing order
+              </Button>
+              <Button
+                onClick={() => {
+                  setTableId(occupiedConfirm.table.id);
+                  setOccupiedConfirm(null);
+                }}
+              >
+                New order anyway
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   );

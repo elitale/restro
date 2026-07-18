@@ -31,7 +31,7 @@ const navMain = [
   { title: "POS", url: "/dashboard/pos", icon: <CalculatorIcon /> },
   { title: "Orders", url: "/dashboard/orders", icon: <ReceiptTextIcon /> },
   { title: "Menu", url: "/dashboard/menu", icon: <BookOpenIcon /> },
-  { title: "Tables", url: "#", icon: <ArmchairIcon /> },
+  { title: "Tables", url: "/dashboard/tables", icon: <ArmchairIcon /> },
   { title: "Inventory", url: "#", icon: <BoxesIcon /> },
 ]
 
