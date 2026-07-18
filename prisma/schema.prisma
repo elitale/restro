@@ -638,6 +638,5 @@ model Staff {
   restaurant Restaurant @relation(fields: [restaurantId], references: [id])
 
   @@unique([restaurantId, employeeCode])
-  @@unique([restaurantId, pinHash])
   @@index([restaurantId])
 }

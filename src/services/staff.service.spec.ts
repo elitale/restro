@@ -9,7 +9,6 @@ vi.mock("@/repositories/staff.repository", () => ({
   createStaff: vi.fn(),
   findStaffByEmployeeCode: vi.fn(),
   findStaffById: vi.fn(),
-  findStaffByPinHash: vi.fn(),
   findStaffByRestaurant: vi.fn(),
   reviveStaff: vi.fn(),
   softDeleteStaff: vi.fn(),
@@ -21,7 +20,6 @@ import {
   createStaff as createStaffRepo,
   findStaffByEmployeeCode,
   findStaffById,
-  findStaffByPinHash,
   reviveStaff,
   updateStaffPin,
 } from "@/repositories/staff.repository";
@@ -31,7 +29,6 @@ import {
   resetPin,
   STAFF_CODE_TAKEN,
   STAFF_FORBIDDEN,
-  STAFF_PIN_TAKEN,
   updateStaff,
 } from "./staff.service";
 
@@ -92,7 +89,6 @@ describe("createStaff", () => {
 
   it("hashes the pin and creates a new staff member", async () => {
     vi.mocked(findStaffByEmployeeCode).mockResolvedValue(null);
-    vi.mocked(findStaffByPinHash).mockResolvedValue(null);
 
     await createStaff(ctx, baseInput);
 
@@ -105,24 +101,14 @@ describe("createStaff", () => {
 
   it("rejects a duplicate active employee code", async () => {
     vi.mocked(findStaffByEmployeeCode).mockResolvedValue(makeStaff());
-    vi.mocked(findStaffByPinHash).mockResolvedValue(null);
 
     await expect(createStaff(ctx, baseInput)).rejects.toThrow(STAFF_CODE_TAKEN);
-  });
-
-  it("rejects a pin already used by another active staff", async () => {
-    vi.mocked(findStaffByEmployeeCode).mockResolvedValue(null);
-    vi.mocked(findStaffByPinHash).mockResolvedValue(makeStaff({ id: "other" }));
-
-    await expect(createStaff(ctx, baseInput)).rejects.toThrow(STAFF_PIN_TAKEN);
-    expect(createStaffRepo).not.toHaveBeenCalled();
   });
 
   it("revives a soft-deleted employee code", async () => {
     vi.mocked(findStaffByEmployeeCode).mockResolvedValue(
       makeStaff({ id: "old", deletedAt: new Date() }),
     );
-    vi.mocked(findStaffByPinHash).mockResolvedValue(null);
     vi.mocked(reviveStaff).mockResolvedValue(makeStaff({ id: "old" }));
 
     await createStaff(ctx, baseInput);
@@ -143,9 +129,8 @@ describe("updateStaff / resetPin", () => {
     ).rejects.toThrow(STAFF_FORBIDDEN);
   });
 
-  it("resetPin hashes and writes the new pin when free", async () => {
+  it("resetPin hashes and writes the new pin", async () => {
     vi.mocked(findStaffById).mockResolvedValue(makeStaff());
-    vi.mocked(findStaffByPinHash).mockResolvedValue(null);
 
     await resetPin(ctx, { id: "st1", pin: "9999" });
 

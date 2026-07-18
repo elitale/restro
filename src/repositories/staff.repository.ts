@@ -73,14 +73,6 @@ export const findStaffByEmployeeCode = (
     where: { restaurantId_employeeCode: { restaurantId, employeeCode } },
   });
 
-export const findStaffByPinHash = (
-  restaurantId: string,
-  pinHash: string,
-): Promise<Staff | null> =>
-  prisma.staff.findUnique({
-    where: { restaurantId_pinHash: { restaurantId, pinHash } },
-  });
-
 export const findStaffByRestaurant = (
   restaurantId: string,
 ): Promise<Staff[]> =>

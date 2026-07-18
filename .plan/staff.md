@@ -94,10 +94,11 @@ model Staff {
   restaurant Restaurant @relation(fields: [restaurantId], references: [id])
 
   @@unique([restaurantId, employeeCode])
-  @@unique([restaurantId, pinHash])
   @@index([restaurantId])
 }
 ```
+
+> **Revised 2026-07-19 — PINs are no longer unique.** The original `@@unique([restaurantId, pinHash])` was dropped (migration `staff_shared_pin`) at the owner's request: multiple staff may share the same POS PIN. The `STAFF_PIN_TAKEN` guard and `findStaffByPinHash` lookup were removed. Trade-off accepted: a PIN alone can't identify *who* entered it — revisit if PIN login / per-staff attribution lands in v1.1 (would need a unique PIN or a separate identifier).
 
 - `Restaurant` gains `staff Staff[]`. Migration **`add_staff`** (additive, no reset).
 - **PIN hashing** (`lib/staff-pin.ts`): `pinHash = HMAC-SHA256(AUTH_SECRET, "${restaurantId}:${pin}")` — deterministic per (restaurant, PIN), so `@@unique([restaurantId, pinHash])` guarantees no two staff share a PIN **and** enables an O(1) PIN→staff lookup for future attribution. (Mirrors the existing OTP HMAC approach.) PIN is 4–6 digits — inherently low-entropy; it authorizes low-stakes POS actions, **not** money movement. `pinHash` never leaves the server; DTOs carry only `hasPin`.

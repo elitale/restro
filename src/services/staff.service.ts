@@ -9,7 +9,6 @@ import {
   createStaff as createStaffRepo,
   findStaffByEmployeeCode,
   findStaffById,
-  findStaffByPinHash,
   findStaffByRestaurant,
   reviveStaff,
   softDeleteStaff,
@@ -28,7 +27,6 @@ import type {
 export const STAFF_NOT_FOUND = "STAFF_NOT_FOUND";
 export const STAFF_FORBIDDEN = "STAFF_FORBIDDEN";
 export const STAFF_CODE_TAKEN = "STAFF_CODE_TAKEN";
-export const STAFF_PIN_TAKEN = "STAFF_PIN_TAKEN";
 
 export interface StaffContext {
   readonly restaurantId: string;
@@ -101,18 +99,6 @@ const loadOwnedStaff = async (
   return staff;
 };
 
-/** Ensure a PIN hash isn't already used by a different active staff member. */
-const assertPinFree = async (
-  restaurantId: string,
-  pinHash: string,
-  ownId: string | null,
-): Promise<void> => {
-  const clash = await findStaffByPinHash(restaurantId, pinHash);
-  if (clash && !clash.deletedAt && clash.id !== ownId) {
-    throw new Error(STAFF_PIN_TAKEN);
-  }
-};
-
 export const createStaff = async (
   ctx: StaffContext,
   input: CreateStaffInput,
@@ -126,7 +112,6 @@ export const createStaff = async (
   if (existing && !existing.deletedAt) {
     throw new Error(STAFF_CODE_TAKEN);
   }
-  await assertPinFree(ctx.restaurantId, pinHash, existing?.id ?? null);
   if (existing) {
     return mapStaff(await reviveStaff(existing.id, data, pinHash));
   }
@@ -164,6 +149,5 @@ export const resetPin = async (
 ): Promise<void> => {
   const staff = await loadOwnedStaff(ctx.restaurantId, input.id);
   const pinHash = hashStaffPin(input.pin, ctx.restaurantId);
-  await assertPinFree(ctx.restaurantId, pinHash, staff.id);
   await updateStaffPin(staff.id, pinHash);
 };
