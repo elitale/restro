@@ -62,3 +62,16 @@ model Restaurant {
   @@index([ownerId])
   @@index([isActive])
 }
+
+/// One-time passcode challenge for phone (SMS) login. Codes are stored hashed.
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone])
+}

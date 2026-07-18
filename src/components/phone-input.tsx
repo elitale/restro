@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getCountries,
@@ -136,10 +136,18 @@ export function PhoneInput({
     };
   }, [defaultCountry]);
 
-  // Keep the parent's E.164 value in sync with the country + national number.
+  // Hold the latest onChange in a ref so the emit effect below doesn't refire
+  // on every parent re-render (inline callbacks change identity each render,
+  // which was wiping the parent's error state on unrelated re-renders).
+  const onChangeRef = useRef(onChange);
   useEffect(() => {
-    onChange(toE164(nationalNumber, country));
-  }, [country, nationalNumber, onChange]);
+    onChangeRef.current = onChange;
+  });
+
+  // Emit the composed E.164 value only when the country or number changes.
+  useEffect(() => {
+    onChangeRef.current(toE164(nationalNumber, country));
+  }, [country, nationalNumber]);
 
   const countries = useMemo(() => {
     const names = new Intl.DisplayNames(["en"], { type: "region" });

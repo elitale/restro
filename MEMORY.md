@@ -25,11 +25,11 @@
 - `prisma/schema.prisma` — `UserRole` enum + **`User`** (role/suspendedAt/deletedAt) + **`Restaurant`** model
 - `prisma.config.ts` — Prisma 7 config; `src/generated/prisma/` — generated client (gitignored)
 - `vitest.config.ts` — node env, `@` alias, `src/**/*.spec.ts` (54 specs)
-- **Not yet present:** Auth.js wiring, Twilio/Resend integration. (`prisma/migrations/` applied — `init` + `admin`; DB is live.)
+- **Not yet present:** Resend (email) integration; POS/order/inventory modules. (DB live; migrations `init` + `admin` + `add_otp_challenge` applied.)
 
 ### Installed stack
 Next 16.2.10 · React 19.2.4 · TypeScript 5 · Tailwind v4 · shadcn/ui + `@base-ui/react` · `lucide-react` · ESLint 9 · React Compiler.
-**Data:** Prisma 7.8.0 + `@prisma/adapter-pg` + `pg` · `dotenv`. **Validation:** `zod` 4.4.3 + `libphonenumber-js` (phone/E.164). **Tests:** `vitest` 4.1.10 · `tsx` (TS scripts). **DB:** **Prisma Postgres** (`db.prisma.io`, `sslmode=require`), migrations applied.
+**Data:** Prisma 7.8.0 + `@prisma/adapter-pg` + `pg` · `dotenv`. **Auth:** `twilio` (SMS OTP) + `jose` (session JWT). **Validation:** `zod` 4.4.3 + `libphonenumber-js`. **Tests:** `vitest` 4.1.10 · `tsx`. **DB:** **Prisma Postgres** (`db.prisma.io`), migrations applied.
 
 ---
 
@@ -39,7 +39,7 @@ Next 16.2.10 · React 19.2.4 · TypeScript 5 · Tailwind v4 · shadcn/ui + `@bas
 - **Data layer:** PostgreSQL (Supabase) + **Prisma 7**, using the new `prisma-client` generator (output `src/generated/prisma`, imported via `@/generated/prisma/client`) and the **`pg` driver adapter** (required by Prisma 7's query compiler). Client singleton in `src/lib/prisma.ts`; only repositories import it. Datasource url set in `prisma.config.ts` from `DATABASE_URL`.
 - **Testing:** **Vitest** is the runner (`npm test`). TDD mandatory; co-locate `*.spec.ts`. Unit-test services by mocking the repository module; unit-test repositories by mocking `@/lib/prisma` (`vi.hoisted` + `vi.mock`).
 - **User model:** `User` = platform account. **Phone is the primary identifier** (unique, E.164); `email` optional/unique. Roles via `UserRole` enum (`MANAGER` default, `ADMIN`, `SUPER_ADMIN`) + `suspendedAt`/`deletedAt` soft-delete. **`Restaurant`** = onboarded entity owned by a manager (`ownedRestaurants` relation).
-- **Auth (planned):** `.env` has `AUTH_*` (Auth.js/NextAuth v5) + Twilio (SMS OTP) + Resend (email). Login is **phone + one-time code**; not yet wired.
+- **Auth (wired):** custom **phone-OTP** login. `requestOtpAction` → 6-digit code, HMAC-hashed (`AUTH_SECRET`) into an `OtpChallenge` row, SMS via **Twilio** (`lib/twilio.ts`, Programmable Messaging + `TWILLIO_FROM_NUMBER`). `verifyOtpAction` → check code → find/create user → **`jose` JWT session cookie** `restro_session` (`lib/session.ts`). `getCurrentUserId()`/`requireUserId()` read the session; proxy checks the cookie (optimistic). Chose a custom session over Auth.js (simpler, fully server-action-native). No Twilio Verify (no Verify SID).
 - **Docs wiring:** `AGENTS.md` = coding standards (source of truth); `MEMORY.md` = state/decisions. `CLAUDE.md` imports both.
 - **Icons:** `@tabler/icons-react` is the intended set for feature code; scaffold + shadcn blocks currently ship `lucide-react`.
 - **Fonts:** body/UI = **Inter** (`--font-sans`), headings = **Outfit** (`--font-heading`, auto-applied to `h1`–`h6` in `globals.css`), mono = **Geist Mono** (`--font-mono`). Wired in `layout.tsx` + `@theme inline`. (Fixed a bug where `--font-sans` self-referenced an undefined var → serif fallback.)
@@ -100,15 +100,21 @@ Next 16.2.10 · React 19.2.4 · TypeScript 5 · Tailwind v4 · shadcn/ui + `@bas
 - Added `prisma/seed.ts` (idempotent upsert) + `db:seed` script; installed `tsx` to run TS scripts.
 - Seeded **Dharmendra Soni** (`+917597365803`, `soni@elitale.com`) as **`ADMIN`** — id `cmrq5aupg0000u96iwmkj0lyr`. `tsc` ✓, `eslint` ✓.
 
+### 2026-07-18 — Phone-OTP auth wired (Twilio + jose)
+- **Schema:** `OtpChallenge` model (phone, hashed code, expiry, attempts, consumedAt) + migration `add_otp_challenge`.
+- **lib:** `otp.ts` (generate + HMAC-hash), `twilio.ts` (`sendSms`), `session.ts` (`jose` JWT `restro_session` cookie: create/get/destroy). `auth-helpers.ts` now session-backed (`getCurrentUserId`, `requireUserId`).
+- **repo/service:** `otp.repository.ts`; `auth.service.ts` (`requestOtp` — 30s resend limit; `verifyOtp` — 5-attempt cap, 5-min TTL, find-or-create user).
+- **actions:** `auth.actions.ts` — `requestOtpAction`, `verifyOtpAction` (sets session), `logoutAction`.
+- **UI:** two-step `login-form.tsx` (phone → 6-digit code via `useServerAction`), `/dashboard` (protected, `requireUserId` + sign-out). Proxy checks `restro_session`; signed-in users land on `/dashboard`.
+- **Tests:** 72 specs. `npm test` ✓, `tsc` ✓, `eslint` ✓. Live: `/login` 200, `/dashboard` 307 (redirects when signed out).
+- `DEV_ADMIN_USER_ID` is set to the admin id → `getCurrentUserId()` returns the admin in dev even without a session.
+
 ---
 
 ## Pending / Next Steps
 
-- **Preview `/admin` now:** set `DEV_ADMIN_USER_ID=cmrq5aupg0000u96iwmkj0lyr` in `.env` (the seeded admin). `/admin` is public in the proxy and `requireAdminPage()` will pass for this admin.
-- **Wire real auth:** replace the `getCurrentUserId()` seam with Auth.js `auth()` (phone-OTP via Twilio) so login + admin gating work for all users.
-- **Wire phone-OTP auth:** add `actions/helpers.ts` (`withValidation`, `ActionResult`) + `hooks/useServerAction`, `requestOtp`/`verifyOtp` server actions (Twilio Verify or custom OTP), Auth.js session, and connect `login-form.tsx`'s submit `TODO`.
 - **Add-email-later flow:** UI + action calling `addEmailToManager` (Resend for verification/notifications).
-- Then move to the first operational module (**Menu** or **Order/POS**), bottom-up per `AGENTS.md`.
+- First operational module (**Menu** or **Order/POS**), bottom-up per `AGENTS.md`.
 
 ---
 
@@ -121,3 +127,4 @@ Next 16.2.10 · React 19.2.4 · TypeScript 5 · Tailwind v4 · shadcn/ui + `@bas
 - **Supabase direct connection is IPv6-only.** `db.<ref>.supabase.co:5432` has no IPv4 `A` record → `P1001` on IPv4-only networks. Use the **Supavisor pooler** instead (username `postgres.<project-ref>`, host `aws-0-<region>.pooler.supabase.com`): session pooler `:5432` for migrations, transaction pooler `:6543?pgbouncer=true` for the serverless app. Copy the exact string from Supabase → Project Settings → Database → Connection string (region appears to be `ap-south-1`). Also confirm the project isn't paused (free tier auto-pauses).
 - **Prisma 7 specifics:** client is generated (not shipped in `@prisma/client`) to `src/generated/prisma` via the `prisma-client` generator; import from `@/generated/prisma/client` (model type is `User`, aliased from `Prisma.UserModel`). The query compiler **requires a driver adapter** (`@prisma/adapter-pg`) — `new PrismaClient()` won't connect without one. `prisma.config.ts` loads env via `dotenv` and holds the datasource url.
 - **Notification/auth env vars (exact names):** Resend → `AUTH_RESEND_KEY`, `RESEND_FROM_EMAIL` (still a coldBirds/tax `from` address — update before sending). Twilio → **`TWILLIO_A_SID`**, `TWILLIO_AUTH_SECRET`, `TWILLIO_PRIMARY_TOKEN`, `TWILLIO_FROM_NUMBER` (note the misspelled `TWILLIO` prefix — use verbatim or rename the vars). Also `AUTH_SECRET`, `AUTH_URL`, `AUTH_TRUST_HOST`, `CRON_SECRET`.
+- **Twilio SMS:** sending from the US `TWILLIO_FROM_NUMBER` to Indian (`+91`) numbers is **authorized** — no DLT caveat. **Real OTP is sent in every environment (dev + prod)**: `requestOtp` always calls Twilio with no `NODE_ENV` gate; only the Vitest suite mocks `sendSms` (automated tests must never fire real SMS). `AUTH_SECRET` is reused to HMAC OTP codes and sign the `restro_session` JWT.

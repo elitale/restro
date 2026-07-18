@@ -8,14 +8,11 @@ const PUBLIC_ROUTES = ["/login", "/admin"];
 const AUTH_ROUTES = ["/login"];
 
 /**
- * Auth.js session cookie names (non-secure in dev, `__Secure-` in prod).
- * The proxy only checks for presence — an optimistic check — and never reads
- * the database, per Next.js Proxy guidance (runs on the edge before render).
+ * Session cookie name. The proxy only checks for presence — an optimistic
+ * check — and never verifies the JWT or reads the DB, per Next.js Proxy
+ * guidance (it runs on the edge before render).
  */
-const SESSION_COOKIE_NAMES = [
-  "authjs.session-token",
-  "__Secure-authjs.session-token",
-];
+const SESSION_COOKIE_NAMES = ["restro_session"];
 
 const matchesRoute = (pathname: string, routes: readonly string[]): boolean =>
   routes.some(
@@ -33,7 +30,7 @@ export function proxy(request: NextRequest): NextResponse {
 
   // Keep signed-in managers out of the auth pages.
   if (authenticated && matchesRoute(pathname, AUTH_ROUTES)) {
-    return NextResponse.redirect(new URL("/", request.nextUrl));
+    return NextResponse.redirect(new URL("/dashboard", request.nextUrl));
   }
 
   // Non-public routes require a session — default redirect to /login.

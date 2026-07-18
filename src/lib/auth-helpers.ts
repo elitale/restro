@@ -1,14 +1,27 @@
+import { redirect } from "next/navigation";
+
+import { getSession } from "@/lib/session";
+
 /**
- * Resolve the currently authenticated user's id.
- *
- * TODO: wire this to Auth.js `auth()` once authentication is set up. Until then
- * it fails closed (returns null) so authenticated/admin routes stay locked. In
- * development, set `DEV_ADMIN_USER_ID` to a real admin user's id to preview
- * gated areas.
+ * Resolve the currently authenticated user's id from the session cookie.
+ * In development, `DEV_ADMIN_USER_ID` acts as a fallback to preview gated areas.
  */
-export const getCurrentUserId = (): Promise<string | null> => {
-  if (process.env.NODE_ENV !== "production" && process.env.DEV_ADMIN_USER_ID) {
-    return Promise.resolve(process.env.DEV_ADMIN_USER_ID);
+export const getCurrentUserId = async (): Promise<string | null> => {
+  const session = await getSession();
+  if (session) {
+    return session.userId;
   }
-  return Promise.resolve(null);
+  if (process.env.NODE_ENV !== "production" && process.env.DEV_ADMIN_USER_ID) {
+    return process.env.DEV_ADMIN_USER_ID;
+  }
+  return null;
+};
+
+/** Guard an authenticated RSC page — redirects to /login when signed out. */
+export const requireUserId = async (): Promise<string> => {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    redirect("/login");
+  }
+  return userId;
 };
