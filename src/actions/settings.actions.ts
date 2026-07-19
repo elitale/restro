@@ -6,6 +6,7 @@ import {
   addVideoLinkSchema,
   removeGalleryImageSchema,
   removeVideoSchema,
+  setInvoiceFooterSchema,
   setSelfOrderSchema,
   updateProfileSchema,
   updateTaxProfileSchema,
@@ -25,6 +26,7 @@ import {
   updateTaxProfile,
   updateUsername,
   regenerateUsername,
+  setInvoiceFooterNote,
   setSelfOrderEnabled,
 } from "@/services/restaurant-settings.service";
 import {
@@ -52,6 +54,11 @@ export const updateUsernameAction = withManagerValidation(
 export const setSelfOrderEnabledAction = withManagerValidation(
   setSelfOrderSchema,
   (data, ctx) => setSelfOrderEnabled(ctx.restaurantId, data.enabled),
+);
+
+export const setInvoiceFooterAction = withManagerValidation(
+  setInvoiceFooterSchema,
+  (data, ctx) => setInvoiceFooterNote(ctx.restaurantId, data.note),
 );
 
 export const regenerateUsernameAction = async (): Promise<

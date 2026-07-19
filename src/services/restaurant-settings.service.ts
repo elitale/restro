@@ -93,6 +93,26 @@ export interface SelfOrderShareInfo {
   readonly enabled: boolean;
 }
 
+/** The custom invoice footer note (empty string when unset). */
+export const getInvoiceFooterNote = async (
+  restaurantId: string,
+): Promise<string> => {
+  const restaurant = await findRestaurantById(restaurantId);
+  if (!restaurant || restaurant.deletedAt) {
+    throw new Error(RESTAURANT_NOT_FOUND);
+  }
+  return restaurant.invoiceFooterNote ?? "";
+};
+
+export const setInvoiceFooterNote = async (
+  restaurantId: string,
+  note: string,
+): Promise<void> => {
+  await updateRestaurant(restaurantId, {
+    invoiceFooterNote: note.trim() || null,
+  });
+};
+
 /** Username (lazily generated) + self-order flag for building table share links. */
 export const getSelfOrderShareInfo = async (
   restaurantId: string,

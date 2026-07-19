@@ -9,6 +9,7 @@ vi.mock("@/services/restaurant-settings.service", () => ({
   updateUsername: vi.fn(),
   regenerateUsername: vi.fn(),
   setSelfOrderEnabled: vi.fn(),
+  setInvoiceFooterNote: vi.fn(),
 }));
 vi.mock("@/services/restaurant-image.service", () => ({
   addGalleryImage: vi.fn(),
@@ -28,6 +29,7 @@ import { getManagerContextOrNull } from "@/lib/manager-auth";
 import { removeGalleryImage } from "@/services/restaurant-image.service";
 import {
   regenerateUsername,
+  setInvoiceFooterNote,
   setSelfOrderEnabled,
   updateRestaurantProfile,
   updateTaxProfile,
@@ -39,6 +41,7 @@ import {
   regenerateUsernameAction,
   removeGalleryImageAction,
   removeVideoAction,
+  setInvoiceFooterAction,
   setSelfOrderEnabledAction,
   updateRestaurantProfileAction,
   updateTaxProfileAction,
@@ -252,5 +255,22 @@ describe("setSelfOrderEnabledAction", () => {
 
     expect(result.success).toBe(false);
     expect(setSelfOrderEnabled).not.toHaveBeenCalled();
+  });
+});
+
+describe("setInvoiceFooterAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getManagerContextOrNull).mockResolvedValue({
+      userId: "u1",
+      restaurantId: "res_1",
+    });
+  });
+
+  it("delegates the note with the manager's restaurant", async () => {
+    const result = await setInvoiceFooterAction({ note: "Visit again!" });
+
+    expect(result.success).toBe(true);
+    expect(setInvoiceFooterNote).toHaveBeenCalledWith("res_1", "Visit again!");
   });
 });

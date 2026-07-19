@@ -148,3 +148,8 @@ export type UpdateUsernameInput = z.infer<typeof updateUsernameSchema>;
 
 export const setSelfOrderSchema = z.object({ enabled: z.boolean() });
 export type SetSelfOrderInput = z.infer<typeof setSelfOrderSchema>;
+
+export const setInvoiceFooterSchema = z.object({
+  note: z.string().trim().max(300),
+});
+export type SetInvoiceFooterInput = z.infer<typeof setInvoiceFooterSchema>;

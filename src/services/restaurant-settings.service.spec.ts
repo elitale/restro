@@ -26,6 +26,7 @@ import {
 import { generateUniqueUsername } from "@/services/restaurant.service";
 import {
   fssaiStatus,
+  getInvoiceFooterNote,
   getRestaurantProfile,
   getSelfOrderEnabled,
   getSelfOrderShareInfo,
@@ -33,6 +34,7 @@ import {
   getTaxProfile,
   regenerateUsername,
   RESTAURANT_NOT_FOUND,
+  setInvoiceFooterNote,
   setSelfOrderEnabled,
   updateRestaurantProfile,
   updateTaxProfile,
@@ -81,6 +83,7 @@ const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   defaultOrderType: "TAKEAWAY",
   businessHours: null,
   selfOrderEnabled: false,
+  invoiceFooterNote: null,
   isActive: true,
   onboardedAt: new Date(),
   createdAt: new Date(),
@@ -336,6 +339,34 @@ describe("self-ordering flag", () => {
 
     expect(updateRestaurant).toHaveBeenCalledWith("res_1", {
       selfOrderEnabled: true,
+    });
+  });
+});
+
+describe("invoice footer note", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("reads the note (empty when unset)", async () => {
+    vi.mocked(findRestaurantById).mockResolvedValue(
+      makeRestaurant({ invoiceFooterNote: null }),
+    );
+    expect(await getInvoiceFooterNote("res_1")).toBe("");
+
+    vi.mocked(findRestaurantById).mockResolvedValue(
+      makeRestaurant({ invoiceFooterNote: "Thanks, visit again!" }),
+    );
+    expect(await getInvoiceFooterNote("res_1")).toBe("Thanks, visit again!");
+  });
+
+  it("persists a trimmed note, clearing to null when blank", async () => {
+    await setInvoiceFooterNote("res_1", "  See you soon  ");
+    expect(updateRestaurant).toHaveBeenCalledWith("res_1", {
+      invoiceFooterNote: "See you soon",
+    });
+
+    await setInvoiceFooterNote("res_1", "   ");
+    expect(updateRestaurant).toHaveBeenCalledWith("res_1", {
+      invoiceFooterNote: null,
     });
   });
 });

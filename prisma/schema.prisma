@@ -173,6 +173,9 @@ model Restaurant {
   // Public guest self-ordering (`/order/[username]`); off until the owner opts in.
   selfOrderEnabled Boolean            @default(false)
 
+  // Custom note printed at the foot of the invoice/bill (owner-editable).
+  invoiceFooterNote String?
+
   isActive    Boolean   @default(true)
   onboardedAt DateTime  @default(now())
   createdAt   DateTime  @default(now())
