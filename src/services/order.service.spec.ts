@@ -206,6 +206,24 @@ describe("createOrder", () => {
     expect(arg.tableId).toBe("tbl_1");
     expect(arg.tableLabel).toBe("T7");
   });
+
+  it("attributes a waiter-placed order to the staff member", async () => {
+    vi.mocked(findOrderByIdempotencyKey).mockResolvedValue(null);
+    vi.mocked(maxOrderNumber).mockResolvedValue(4);
+
+    await createOrder(
+      { restaurantId: "res_1", userId: null, staffId: "st1" },
+      {
+        orderType: "DINE_IN",
+        idempotencyKey: "key12345",
+        items: [{ menuItemId: "i1", quantity: 1, isComp: false, modifierIds: [] }],
+      },
+    );
+
+    const arg = vi.mocked(createOrderRepo).mock.calls[0][0];
+    expect(arg.placedById).toBeNull();
+    expect(arg.placedByStaffId).toBe("st1");
+  });
 });
 
 describe("addItems / voidLine ownership", () => {

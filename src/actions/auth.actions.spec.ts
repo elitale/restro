@@ -6,6 +6,9 @@ vi.mock("@/lib/admin-auth", () => ({
 vi.mock("@/lib/manager-auth", () => ({
   getManagerContextOrNull: vi.fn(),
 }));
+vi.mock("@/lib/staff-auth", () => ({
+  getStaffContextOrNull: vi.fn(),
+}));
 vi.mock("@/services/auth.service", () => ({
   requestOtp: vi.fn(),
   verifyOtp: vi.fn(),

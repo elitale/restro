@@ -227,6 +227,17 @@ Next 16.2.10 · React 19.2.4 · TypeScript 5 · Tailwind v4 · shadcn/ui + `@bas
 
 ---
 
+## Waiter ordering (SHIPPED — `.plan/waiter-ordering.md`)
+
+- **The work screen behind the waiter login.** `/u/[username]` (WAITER) = **open-tables home** (`WaiterHome`, lists OPEN orders) + New order. `/u/[username]/order/new` and `/order/[orderId]` = `OrderBuilder` (mobile: search + category chips + one-tap items, `ItemConfigDialog` reused for variants/modifiers, pinned bottom cart bar + review sheet, optional after-the-fact phone, table grid for dine-in). Kitchen still gets the stub.
+- **Reuses the POS logic wholesale:** `order.service` `createOrder`/`addItems`+`fireOrder`/`listOrders`/`getOrder`, `getMenu`, `getTables`, `getServiceOptions`, `useOrderCart` + `CartLine`/`toBillLine`/`computeBill`. **Send = fire-all**, idempotent (`idempotencyKey`) for resilient retry (D1).
+- **Attribution (D3):** `Order.placedById` widened to nullable + new **`Order.placedByStaffId`** (migration `add_order_staff_attribution`; also widened `Payment.receivedById` + `StockMovement.createdById` to nullable so a null-userId waiter actor flows through). `OrderContext` gained `userId: string | null` + optional `staffId`; waiter create writes `placedByStaffId`, `placedById=null`.
+- **Auth:** `withStaffValidation(schema, handler, { role })` in `actions/helpers.ts` (mirrors manager wrapper; `NO_STAFF_SESSION`/`STAFF_FORBIDDEN`). Actions `actions/staff-order.actions.ts`: `createWaiterOrderAction` + `addWaiterItemsAction` (both `{ role: "WAITER" }`). **Waiter has zero price/void/comp/settle powers (D4/D5)** — those actions stay `withManagerValidation`; removing an **unsent** cart line before Send is the only "edit".
+- **Gotcha:** `helpers.ts` now imports `@/lib/staff-auth` → every action spec that mocks manager/admin-auth must also `vi.mock("@/lib/staff-auth", () => ({ getStaffContextOrNull: vi.fn() }))` (else it loads real prisma).
+- **v1.1 (agents):** true offline-first, kitchen KDS (add-on tickets flagged), coursing, split-by-seat, floor map, bar tabs + waiter payment, per-line attribution, tableside manager-PIN void.
+
+---
+
 ## Notes / Gotchas
 
 - **`AGENT.md` vs `AGENTS.md`:** `.github/copilot-instructions.md` says "AGENT.md", but the live file imported by `CLAUDE.md` is **`AGENTS.md`**. Treat `AGENTS.md` as the source of truth.

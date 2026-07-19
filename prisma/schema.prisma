@@ -431,7 +431,8 @@ model Order {
   roundOff       Decimal      @default(0) @db.Decimal(10, 2)
   grandTotal     Decimal      @default(0) @db.Decimal(10, 2)
 
-  placedById String
+  placedById      String?
+  placedByStaffId String?
   voidedById String?
   voidReason String?
   createdAt  DateTime  @default(now())
@@ -498,7 +499,7 @@ model Payment {
   amount       Decimal     @db.Decimal(10, 2)
   tendered     Decimal?    @db.Decimal(10, 2)
   reference    String?
-  receivedById String
+  receivedById String?
   createdAt    DateTime    @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -563,7 +564,7 @@ model StockMovement {
   reason          String?
   note            String?
   orderId         String?
-  createdById     String
+  createdById     String?
   createdAt       DateTime          @default(now())
 
   stockItem StockItem @relation(fields: [stockItemId], references: [id])

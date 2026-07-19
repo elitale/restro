@@ -83,6 +83,7 @@ describe("orderRepository", () => {
       customerAddress: null,
       note: null,
       placedById: "u1",
+      placedByStaffId: null,
       items: [line()],
     });
 

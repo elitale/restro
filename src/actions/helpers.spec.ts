@@ -7,6 +7,9 @@ vi.mock("@/lib/admin-auth", () => ({
 vi.mock("@/lib/manager-auth", () => ({
   getManagerContextOrNull: vi.fn(),
 }));
+vi.mock("@/lib/staff-auth", () => ({
+  getStaffContextOrNull: vi.fn(),
+}));
 
 import { getAdminContextOrNull } from "@/lib/admin-auth";
 import { withAdminValidation, withValidation } from "./helpers";

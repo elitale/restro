@@ -4,6 +4,7 @@ import type { Restaurant } from "@/generated/prisma/client";
 
 vi.mock("@/lib/admin-auth", () => ({ getAdminContextOrNull: vi.fn() }));
 vi.mock("@/lib/manager-auth", () => ({ getManagerContextOrNull: vi.fn() }));
+vi.mock("@/lib/staff-auth", () => ({ getStaffContextOrNull: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/staff-session", () => ({
   createStaffSession: vi.fn(),

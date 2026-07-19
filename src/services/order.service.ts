@@ -40,7 +40,8 @@ export const MODIFIER_NOT_FOUND = "MODIFIER_NOT_FOUND";
 
 export interface OrderContext {
   readonly restaurantId: string;
-  readonly userId: string;
+  readonly userId: string | null;
+  readonly staffId?: string | null;
 }
 
 const num = (v: unknown): number => Number(v);
@@ -209,6 +210,7 @@ export const createOrder = async (
     customerAddress: input.customerAddress ?? null,
     note: input.note ?? null,
     placedById: ctx.userId,
+    placedByStaffId: ctx.staffId ?? null,
     items,
   });
   await depleteForLines(

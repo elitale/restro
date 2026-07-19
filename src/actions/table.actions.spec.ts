@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/admin-auth", () => ({ getAdminContextOrNull: vi.fn() }));
 vi.mock("@/lib/manager-auth", () => ({ getManagerContextOrNull: vi.fn() }));
+vi.mock("@/lib/staff-auth", () => ({ getStaffContextOrNull: vi.fn() }));
 vi.mock("@/services/table.service", () => ({
   createTable: vi.fn(),
   updateTable: vi.fn(),

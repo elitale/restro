@@ -41,7 +41,8 @@ export interface CreateOrderData {
   customerPhone: string | null;
   customerAddress: string | null;
   note: string | null;
-  placedById: string;
+  placedById: string | null;
+  placedByStaffId: string | null;
   items: OrderLineWriteData[];
 }
 
@@ -87,6 +88,7 @@ export const createOrder = (
       customerAddress: data.customerAddress,
       note: data.note,
       placedById: data.placedById,
+      placedByStaffId: data.placedByStaffId,
       items: { create: lineCreate(data.items) },
     },
     include: ORDER_INCLUDE,
@@ -169,7 +171,7 @@ export const setLineState = async (
 
 export const voidOrder = (
   id: string,
-  voidedById: string,
+  voidedById: string | null,
   reason: string,
 ): Promise<Order> =>
   prisma.order.update({
@@ -192,7 +194,7 @@ export interface SettleData {
     amount: number;
     tendered: number | null;
     reference: string | null;
-    receivedById: string;
+    receivedById: string | null;
   }[];
 }
 

@@ -95,7 +95,7 @@ export interface MovementInput {
   reason: string | null;
   note: string | null;
   orderId: string | null;
-  createdById: string;
+  createdById: string | null;
 }
 
 const writeMovement = (

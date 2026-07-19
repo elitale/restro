@@ -2,6 +2,7 @@ import { z, type ZodError, type ZodType } from "zod";
 
 import { getAdminContextOrNull, type AdminContext } from "@/lib/admin-auth";
 import { getManagerContextOrNull, type ManagerContext } from "@/lib/manager-auth";
+import { getStaffContextOrNull, type StaffContext } from "@/lib/staff-auth";
 import { failure, success, type ActionResult } from "@/types";
 
 const extractFieldErrors = (error: ZodError): Record<string, string[]> => {
@@ -83,6 +84,34 @@ export const withManagerValidation = <TSchema extends ZodType, TOutput>(
     const ctx = await getManagerContextOrNull();
     if (!ctx) {
       return failure<TOutput>("NO_RESTAURANT");
+    }
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      return failure<TOutput>(
+        "Validation failed",
+        extractFieldErrors(parsed.error),
+      );
+    }
+    return runHandler<TOutput>(() => handler(parsed.data, ctx));
+  };
+};
+
+/** Require a staff (waiter/kitchen) session, optionally a specific role, then delegate. */
+export const withStaffValidation = <TSchema extends ZodType, TOutput>(
+  schema: TSchema,
+  handler: (
+    data: z.infer<TSchema>,
+    ctx: StaffContext,
+  ) => Promise<ActionResult<TOutput>> | Promise<TOutput>,
+  options: { readonly role?: StaffContext["role"] } = {},
+) => {
+  return async (raw: unknown): Promise<ActionResult<TOutput>> => {
+    const ctx = await getStaffContextOrNull();
+    if (!ctx) {
+      return failure<TOutput>("NO_STAFF_SESSION");
+    }
+    if (options.role && ctx.role !== options.role) {
+      return failure<TOutput>("STAFF_FORBIDDEN");
     }
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {

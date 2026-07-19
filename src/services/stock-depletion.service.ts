@@ -3,7 +3,7 @@ import { getRecipesMap } from "@/services/recipe.service";
 
 export interface DepletionContext {
   readonly restaurantId: string;
-  readonly userId: string;
+  readonly userId: string | null;
 }
 
 export interface OrderedLine {

@@ -1,4 +1,5 @@
-import type { BillLineInput } from "@/services/billing";
+import { computeBill, type BillLineInput } from "@/services/billing";
+import type { OrderDTO } from "@/types/order";
 
 export interface CartModifier {
   readonly id: string;
@@ -42,3 +43,18 @@ export const toBillLine = (line: CartLine): BillLineInput => ({
   taxInclusive: line.taxInclusive,
   isComp: line.isComp,
 });
+
+/** Running (tax-inclusive) total of a persisted order's non-void lines. */
+export const orderRunningTotal = (order: OrderDTO): number =>
+  computeBill(
+    order.lines
+      .filter((l) => l.state !== "VOID")
+      .map((l) => ({
+        unitPrice: l.unitPrice,
+        modifiersDelta: modifiersDelta(l.modifiers),
+        quantity: l.quantity,
+        taxRate: l.taxRate,
+        taxInclusive: l.taxInclusive,
+        isComp: l.isComp,
+      })),
+  ).grandTotal;
