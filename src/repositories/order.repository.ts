@@ -328,3 +328,21 @@ export const countVoidedSince = (
   prisma.order.count({
     where: { restaurantId, status: "VOID", updatedAt: { gte: since } },
   });
+
+/** Sum + count of settled orders in a half-open window [from, to) — for deltas. */
+export const aggregateSettledBetween = async (
+  restaurantId: string,
+  from: Date,
+  to: Date,
+): Promise<{ sum: number; count: number }> => {
+  const result = await prisma.order.aggregate({
+    where: {
+      restaurantId,
+      status: "COMPLETED",
+      settledAt: { gte: from, lt: to },
+    },
+    _sum: { grandTotal: true },
+    _count: true,
+  });
+  return { sum: Number(result._sum.grandTotal ?? 0), count: result._count };
+};

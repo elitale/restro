@@ -8,6 +8,7 @@ const {
   orderUpdate,
   findUniqueOrThrow,
   orderItemUpdateMany,
+  orderAggregate,
   restaurantUpdate,
   transaction,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   orderUpdate: vi.fn(),
   findUniqueOrThrow: vi.fn(),
   orderItemUpdateMany: vi.fn(),
+  orderAggregate: vi.fn(),
   restaurantUpdate: vi.fn(),
   transaction: vi.fn(),
 }));
@@ -31,6 +33,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: orderFindMany,
       update: orderUpdate,
       findUniqueOrThrow,
+      aggregate: orderAggregate,
     },
     orderItem: { updateMany: orderItemUpdateMany },
     restaurant: { update: restaurantUpdate },
@@ -40,6 +43,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import {
   advanceLineStates,
+  aggregateSettledBetween,
   createOrder,
   findOrdersForGuest,
   fireUnsentItems,
@@ -124,6 +128,33 @@ describe("orderRepository", () => {
         take: 15,
       }),
     );
+  });
+
+  it("aggregateSettledBetween sums + counts settled orders in the window", async () => {
+    orderAggregate.mockResolvedValue({ _sum: { grandTotal: 4210 }, _count: 12 });
+
+    const from = new Date("2026-06-01T00:00:00Z");
+    const to = new Date("2026-07-01T00:00:00Z");
+    const result = await aggregateSettledBetween("res_1", from, to);
+
+    expect(result).toEqual({ sum: 4210, count: 12 });
+    expect(orderAggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          restaurantId: "res_1",
+          status: "COMPLETED",
+          settledAt: { gte: from, lt: to },
+        },
+      }),
+    );
+  });
+
+  it("aggregateSettledBetween treats a null sum as 0", async () => {
+    orderAggregate.mockResolvedValue({ _sum: { grandTotal: null }, _count: 0 });
+
+    await expect(
+      aggregateSettledBetween("res_1", new Date(0), new Date()),
+    ).resolves.toEqual({ sum: 0, count: 0 });
   });
 
   it("fireUnsentItems fires only UNSENT lines then reloads", async () => {
