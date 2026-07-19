@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { jwtVerify, SignJWT } from "jose";
 
 const COOKIE_NAME = "restro_guest";
-const MAX_AGE_SECONDS = 60 * 60 * 3; // ~one seating
+const MAX_AGE_SECONDS = 60 * 60 * 2; // 2-hour seating; auto-expires after
 
 const getSecret = (): Uint8Array => {
   const secret = process.env.AUTH_SECRET;
@@ -18,11 +18,13 @@ export interface GuestSessionPayload {
   readonly restaurantId: string;
   readonly tableId: string;
   readonly phone: string;
+  /** When the session auto-expires (epoch ms), from the JWT `exp` claim. */
+  readonly expiresAt: number;
 }
 
 /** Sign a guest session JWT and store it in an httpOnly cookie. */
 export const createGuestSession = async (
-  payload: GuestSessionPayload,
+  payload: Omit<GuestSessionPayload, "expiresAt">,
 ): Promise<void> => {
   const token = await new SignJWT({
     restaurantId: payload.restaurantId,
@@ -54,13 +56,14 @@ export const getGuestSession =
     }
     try {
       const { payload } = await jwtVerify(token, getSecret());
-      const { restaurantId, tableId, phone } = payload;
+      const { restaurantId, tableId, phone, exp } = payload;
       if (
         typeof restaurantId === "string" &&
         typeof tableId === "string" &&
-        typeof phone === "string"
+        typeof phone === "string" &&
+        typeof exp === "number"
       ) {
-        return { restaurantId, tableId, phone };
+        return { restaurantId, tableId, phone, expiresAt: exp * 1000 };
       }
       return null;
     } catch {

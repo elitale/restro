@@ -1,11 +1,13 @@
 import type { CartLine } from "@/components/pos/types";
 
 const PREFIX = "restro.guestsession";
-const TTL_MS = 3 * 60 * 60 * 1000; // ~one seating, matches the guest cookie
+const TTL_MS = 2 * 60 * 60 * 1000; // 2h — matches the guest cookie
 
 export interface GuestSession {
   readonly lines: CartLine[];
   readonly verified: boolean;
+  /** Session auto-expiry (epoch ms); after this the guest is treated as logged out. */
+  readonly expiresAt: number | null;
   readonly updatedAt: number;
 }
 
@@ -15,7 +17,8 @@ export const guestSessionKey = (username: string, tableId: string): string =>
 
 /**
  * Pure: parse a stored blob, returning it only when well-formed and unexpired.
- * Kept IO-free so it's unit-testable without a DOM.
+ * `verified` is additionally cleared once the session's own `expiresAt` passes
+ * (so cart activity can't keep a stale login alive). Kept IO-free for tests.
  */
 export const parseGuestSession = (
   raw: string | null,
@@ -32,9 +35,14 @@ export const parseGuestSession = (
     if (!Array.isArray(data.lines)) {
       return null;
     }
+    const expiresAt =
+      typeof data.expiresAt === "number" ? data.expiresAt : null;
+    const verified =
+      Boolean(data.verified) && (expiresAt === null || now < expiresAt);
     return {
       lines: data.lines as CartLine[],
-      verified: Boolean(data.verified),
+      verified,
+      expiresAt,
       updatedAt: data.updatedAt,
     };
   } catch {
@@ -57,7 +65,11 @@ export const readGuestSession = (key: string): GuestSession | null => {
 /** Persist the current cart draft + verified marker (stamped with `now`). */
 export const writeGuestSession = (
   key: string,
-  session: { readonly lines: CartLine[]; readonly verified: boolean },
+  session: {
+    readonly lines: CartLine[];
+    readonly verified: boolean;
+    readonly expiresAt: number | null;
+  },
 ): void => {
   if (typeof window === "undefined") {
     return;

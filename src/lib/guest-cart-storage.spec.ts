@@ -22,7 +22,13 @@ const line: CartLine = {
 };
 
 const blob = (over: Record<string, unknown> = {}): string =>
-  JSON.stringify({ lines: [line], verified: true, updatedAt: NOW, ...over });
+  JSON.stringify({
+    lines: [line],
+    verified: true,
+    expiresAt: NOW + 60_000,
+    updatedAt: NOW,
+    ...over,
+  });
 
 describe("guestSessionKey", () => {
   it("scopes by username + table", () => {
@@ -43,8 +49,18 @@ describe("parseGuestSession", () => {
     expect(parseGuestSession(null, NOW)).toBeNull();
   });
 
-  it("returns null once expired (>3h)", () => {
-    expect(parseGuestSession(blob(), NOW + 3 * 60 * 60 * 1000 + 1)).toBeNull();
+  it("returns null once expired (>2h of inactivity)", () => {
+    expect(parseGuestSession(blob(), NOW + 2 * 60 * 60 * 1000 + 1)).toBeNull();
+  });
+
+  it("clears verified once the session's own expiry passes", () => {
+    // updatedAt is recent (active cart) but expiresAt has passed.
+    const parsed = parseGuestSession(
+      blob({ expiresAt: NOW - 1, updatedAt: NOW }),
+      NOW + 1000,
+    );
+    expect(parsed?.verified).toBe(false);
+    expect(parsed?.lines).toHaveLength(1);
   });
 
   it("returns null for malformed JSON", () => {

@@ -57,6 +57,7 @@ export default async function OrderPage({
 
   const verifiedPhoneMasked =
     verified && session ? maskPhone(session.phone) : null;
+  const verifiedExpiresAt = verified && session ? session.expiresAt : null;
   const initialOrders =
     verified && session
       ? await getGuestOrders(
@@ -76,6 +77,7 @@ export default async function OrderPage({
         menu={data.menu}
         initiallyVerified={Boolean(verified)}
         verifiedPhoneMasked={verifiedPhoneMasked}
+        verifiedExpiresAt={verifiedExpiresAt}
         initialOrders={initialOrders}
       />
     </main>

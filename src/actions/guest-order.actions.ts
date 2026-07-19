@@ -1,7 +1,11 @@
 "use server";
 
 import { withValidation } from "@/actions/helpers";
-import { createGuestSession, getGuestSession } from "@/lib/guest-session";
+import {
+  createGuestSession,
+  destroyGuestSession,
+  getGuestSession,
+} from "@/lib/guest-session";
 import {
   guestPlaceOrderSchema,
   guestRequestOtpSchema,
@@ -86,4 +90,9 @@ export const guestMyOrdersAction = async (): Promise<
       error instanceof Error ? error.message : "Something went wrong",
     );
   }
+};
+
+/** Log the guest out by clearing their session cookie. */
+export const guestLogoutAction = async (): Promise<void> => {
+  await destroyGuestSession();
 };

@@ -7,6 +7,7 @@ vi.mock("@/lib/manager-auth", () => ({ getManagerContextOrNull: vi.fn() }));
 vi.mock("@/lib/staff-auth", () => ({ getStaffContextOrNull: vi.fn() }));
 vi.mock("@/lib/guest-session", () => ({
   createGuestSession: vi.fn(),
+  destroyGuestSession: vi.fn(),
   getGuestSession: vi.fn(),
 }));
 vi.mock("@/services/guest-otp.service", () => ({
@@ -19,7 +20,11 @@ vi.mock("@/services/guest-order.service", () => ({
   getGuestOrders: vi.fn(),
 }));
 
-import { createGuestSession, getGuestSession } from "@/lib/guest-session";
+import {
+  createGuestSession,
+  destroyGuestSession,
+  getGuestSession,
+} from "@/lib/guest-session";
 import {
   getGuestOrders,
   placeGuestOrder,
@@ -27,6 +32,7 @@ import {
 } from "@/services/guest-order.service";
 import { requestGuestOtp, verifyGuestOtp } from "@/services/guest-otp.service";
 import {
+  guestLogoutAction,
   guestMyOrdersAction,
   guestPlaceOrderAction,
   guestRequestOtpAction,
@@ -89,6 +95,7 @@ describe("guestPlaceOrderAction", () => {
       restaurantId: "res_1",
       tableId: "t1",
       phone: PHONE,
+      expiresAt: Date.now() + 3_600_000,
     });
     vi.mocked(placeGuestOrder).mockResolvedValue({ id: "o1" } as OrderDTO);
 
@@ -115,6 +122,7 @@ describe("guestPlaceOrderAction", () => {
       restaurantId: "res_1",
       tableId: "OTHER",
       phone: PHONE,
+      expiresAt: Date.now() + 3_600_000,
     });
 
     const result = await guestPlaceOrderAction(input);
@@ -130,6 +138,7 @@ describe("guestMyOrdersAction", () => {
       restaurantId: "res_1",
       tableId: "t1",
       phone: PHONE,
+      expiresAt: Date.now() + 3_600_000,
     });
     vi.mocked(getGuestOrders).mockResolvedValue([]);
 
@@ -146,5 +155,13 @@ describe("guestMyOrdersAction", () => {
 
     expect(result.success).toBe(false);
     expect(getGuestOrders).not.toHaveBeenCalled();
+  });
+});
+
+describe("guestLogoutAction", () => {
+  it("clears the guest session cookie", async () => {
+    await guestLogoutAction();
+
+    expect(destroyGuestSession).toHaveBeenCalled();
   });
 });

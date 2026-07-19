@@ -34,11 +34,14 @@ describe("guest session", () => {
       phone: "+919876543210",
     });
 
-    expect(await getGuestSession()).toEqual({
+    const session = await getGuestSession();
+    expect(session).toMatchObject({
       restaurantId: "res_1",
       tableId: "t1",
       phone: "+919876543210",
     });
+    // ~2h expiry exposed for the client auto-logout.
+    expect(session?.expiresAt).toBeGreaterThan(Date.now());
   });
 
   it("returns null when there's no cookie", async () => {

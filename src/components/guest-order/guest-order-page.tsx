@@ -6,6 +6,7 @@ import { MinusIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  guestLogoutAction,
   guestMyOrdersAction,
   guestPlaceOrderAction,
   guestRequestOtpAction,
@@ -35,6 +36,7 @@ import { useServerAction } from "@/hooks/use-server-action";
 import { computeBill } from "@/services/billing";
 import { formatTime, maskPhone } from "@/lib/format";
 import {
+  clearGuestSession,
   guestSessionKey,
   readGuestSession,
   writeGuestSession,
@@ -55,6 +57,8 @@ const ERRORS: Record<string, string> = {
   ITEM_UNAVAILABLE: "An item just sold out. Please review your cart.",
 };
 const toMessage = (m: string) => ERRORS[m] ?? m;
+
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 /** Guest-facing status label + colour for one of their orders. */
 const orderStatus = (
@@ -86,6 +90,7 @@ export function GuestOrderPage({
   menu,
   initiallyVerified,
   verifiedPhoneMasked,
+  verifiedExpiresAt,
   initialOrders,
 }: {
   readonly username: string;
@@ -95,6 +100,7 @@ export function GuestOrderPage({
   readonly menu: MenuDTO;
   readonly initiallyVerified: boolean;
   readonly verifiedPhoneMasked: string | null;
+  readonly verifiedExpiresAt: number | null;
   readonly initialOrders: readonly GuestOrderSummaryDTO[];
 }) {
   const cart = useOrderCart();
@@ -102,6 +108,7 @@ export function GuestOrderPage({
   const [reviewOpen, setReviewOpen] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verified, setVerified] = useState(initiallyVerified);
+  const [expiresAt, setExpiresAt] = useState<number | null>(verifiedExpiresAt);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -128,6 +135,9 @@ export function GuestOrderPage({
         }
         if (saved.verified) {
           setVerified(true);
+          if (saved.expiresAt) {
+            setExpiresAt(saved.expiresAt);
+          }
         }
       }
       restoredRef.current = true;
@@ -141,8 +151,8 @@ export function GuestOrderPage({
     if (!restoredRef.current) {
       return;
     }
-    writeGuestSession(storageKey, { lines: cart.cart, verified });
-  }, [storageKey, cart.cart, verified]);
+    writeGuestSession(storageKey, { lines: cart.cart, verified, expiresAt });
+  }, [storageKey, cart.cart, verified, expiresAt]);
 
   const refreshOrders = useCallback(async () => {
     const res = await guestMyOrdersAction();
@@ -162,6 +172,38 @@ export function GuestOrderPage({
     }, 10000);
     return () => clearInterval(id);
   }, [verified, refreshOrders]);
+
+  const logout = (expired = false) => {
+    void guestLogoutAction();
+    clearGuestSession(storageKey);
+    cart.clear();
+    setVerified(false);
+    setExpiresAt(null);
+    setMyOrders([]);
+    setOrdersOpen(false);
+    setOtpSent(false);
+    setCode("");
+    toast(expired ? "Session expired — verify again to order" : "Logged out");
+  };
+
+  // Keep the timer below pointed at the latest logout closure.
+  const logoutRef = useRef(logout);
+  useEffect(() => {
+    logoutRef.current = logout;
+  });
+
+  // Auto-logout when the 2-hour session expires (defer so we never setState
+  // synchronously inside the effect body).
+  useEffect(() => {
+    if (!verified || expiresAt === null) {
+      return;
+    }
+    const id = setTimeout(
+      () => logoutRef.current(true),
+      Math.max(0, expiresAt - Date.now()),
+    );
+    return () => clearTimeout(id);
+  }, [verified, expiresAt]);
 
   const bill = useMemo(
     () => computeBill(cart.cart.map(toBillLine)),
@@ -225,6 +267,7 @@ export function GuestOrderPage({
   const verify = useServerAction(guestVerifyOtpAction, {
     onSuccess: () => {
       setVerified(true);
+      setExpiresAt(Date.now() + TWO_HOURS_MS);
       void refreshOrders();
       submitOrder();
     },
@@ -306,15 +349,21 @@ export function GuestOrderPage({
             ) : null}
           </p>
         </div>
-        {verified && myOrders.length > 0 ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0"
-            onClick={() => setOrdersOpen(true)}
-          >
-            Your orders ({myOrders.length})
-          </Button>
+        {verified ? (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {myOrders.length > 0 ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOrdersOpen(true)}
+              >
+                Your orders ({myOrders.length})
+              </Button>
+            ) : null}
+            <Button variant="ghost" size="sm" onClick={() => logout(false)}>
+              Log out
+            </Button>
+          </div>
         ) : null}
       </div>
 
