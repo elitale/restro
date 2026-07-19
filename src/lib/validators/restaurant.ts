@@ -145,3 +145,6 @@ export const usernameSchema = z
 
 export const updateUsernameSchema = z.object({ username: usernameSchema });
 export type UpdateUsernameInput = z.infer<typeof updateUsernameSchema>;
+
+export const setSelfOrderSchema = z.object({ enabled: z.boolean() });
+export type SetSelfOrderInput = z.infer<typeof setSelfOrderSchema>;

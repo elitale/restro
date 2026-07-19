@@ -11,6 +11,7 @@ import { markPickedUpAction } from "@/actions/kitchen.actions";
 import { staffLogoutAction } from "@/actions/staff-auth.actions";
 import { orderRunningTotal } from "@/components/pos/types";
 import { KitchenStatusBadge } from "@/components/shared/kitchen-status-badge";
+import { SelfOrderBadge } from "@/components/shared/self-order-badge";
 import { SoundToggle } from "@/components/shared/sound-toggle";
 import { Button } from "@/components/ui/button";
 import { useAnnouncer } from "@/hooks/use-announcer";
@@ -34,6 +35,9 @@ const itemCount = (order: OrderDTO): number =>
 
 const isReady = (order: OrderDTO): boolean =>
   deriveKitchenStatus(order.lines.map((l) => l.state)) === "READY";
+
+const hasSelfOrder = (order: OrderDTO): boolean =>
+  order.lines.some((l) => l.state !== "VOID" && l.source === "SELF_ORDER");
 
 const AUTH_ERRORS: Record<string, string> = {
   STAFF_FORBIDDEN: "You don't have permission to do that.",
@@ -146,6 +150,7 @@ export function WaiterHome({
                       <KitchenStatusBadge
                         states={order.lines.map((l) => l.state)}
                       />
+                      {hasSelfOrder(order) ? <SelfOrderBadge /> : null}
                     </span>
                     <span className="text-muted-foreground text-sm">
                       {itemCount(order)} items · {minutesAgo(order.createdAt)}

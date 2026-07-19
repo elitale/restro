@@ -8,6 +8,7 @@ vi.mock("@/services/restaurant-settings.service", () => ({
   updateRestaurantProfile: vi.fn(),
   updateUsername: vi.fn(),
   regenerateUsername: vi.fn(),
+  setSelfOrderEnabled: vi.fn(),
 }));
 vi.mock("@/services/restaurant-image.service", () => ({
   addGalleryImage: vi.fn(),
@@ -27,6 +28,7 @@ import { getManagerContextOrNull } from "@/lib/manager-auth";
 import { removeGalleryImage } from "@/services/restaurant-image.service";
 import {
   regenerateUsername,
+  setSelfOrderEnabled,
   updateRestaurantProfile,
   updateTaxProfile,
   updateUsername,
@@ -37,6 +39,7 @@ import {
   regenerateUsernameAction,
   removeGalleryImageAction,
   removeVideoAction,
+  setSelfOrderEnabledAction,
   updateRestaurantProfileAction,
   updateTaxProfileAction,
   updateUsernameAction,
@@ -223,5 +226,31 @@ describe("username actions", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("NO_RESTAURANT");
+  });
+});
+
+describe("setSelfOrderEnabledAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getManagerContextOrNull).mockResolvedValue({
+      userId: "u1",
+      restaurantId: "res_1",
+    });
+  });
+
+  it("delegates the flag with the manager's restaurant", async () => {
+    const result = await setSelfOrderEnabledAction({ enabled: true });
+
+    expect(result.success).toBe(true);
+    expect(setSelfOrderEnabled).toHaveBeenCalledWith("res_1", true);
+  });
+
+  it("fails without a restaurant", async () => {
+    vi.mocked(getManagerContextOrNull).mockResolvedValue(null);
+
+    const result = await setSelfOrderEnabledAction({ enabled: true });
+
+    expect(result.success).toBe(false);
+    expect(setSelfOrderEnabled).not.toHaveBeenCalled();
   });
 });

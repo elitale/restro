@@ -1,6 +1,7 @@
 import { GalleryManager } from "@/components/settings/gallery-manager"
 import { ProfileHeader } from "@/components/settings/profile-header"
 import { RestaurantProfileForm } from "@/components/settings/restaurant-profile-form"
+import { SelfOrderCard } from "@/components/settings/self-order-card"
 import { SignInPinCard } from "@/components/settings/sign-in-pin-card"
 import { TaxSettingsForm } from "@/components/settings/tax-settings-form"
 import { UsernameCard } from "@/components/settings/username-card"
@@ -17,6 +18,7 @@ import {
 import { getManagerContextOrNull } from "@/lib/manager-auth"
 import {
   getRestaurantProfile,
+  getSelfOrderEnabled,
   getTaxProfile,
 } from "@/services/restaurant-settings.service"
 import { getPinStatus } from "@/services/pin-auth.service"
@@ -43,6 +45,7 @@ export default async function SettingsPage() {
     getTaxProfile(ctx.restaurantId),
   ])
   const pinStatus = await getPinStatus(ctx.userId)
+  const selfOrderEnabled = await getSelfOrderEnabled(ctx.restaurantId)
 
   const essentials: (string | null)[] = [
     profile.name,
@@ -69,6 +72,7 @@ export default async function SettingsPage() {
       />
       <ProfileHeader profile={profile} completeness={completeness} />
       <UsernameCard username={profile.username} />
+      <SelfOrderCard enabled={selfOrderEnabled} username={profile.username} />
       <RestaurantProfileForm profile={profile} />
       <Card>
         <CardHeader>

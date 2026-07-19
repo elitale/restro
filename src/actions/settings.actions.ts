@@ -6,6 +6,7 @@ import {
   addVideoLinkSchema,
   removeGalleryImageSchema,
   removeVideoSchema,
+  setSelfOrderSchema,
   updateProfileSchema,
   updateTaxProfileSchema,
   updateUsernameSchema,
@@ -24,6 +25,7 @@ import {
   updateTaxProfile,
   updateUsername,
   regenerateUsername,
+  setSelfOrderEnabled,
 } from "@/services/restaurant-settings.service";
 import {
   addVideoLink,
@@ -45,6 +47,11 @@ export const updateRestaurantProfileAction = withManagerValidation(
 export const updateUsernameAction = withManagerValidation(
   updateUsernameSchema,
   (data, ctx) => updateUsername(ctx.restaurantId, data.username),
+);
+
+export const setSelfOrderEnabledAction = withManagerValidation(
+  setSelfOrderSchema,
+  (data, ctx) => setSelfOrderEnabled(ctx.restaurantId, data.enabled),
 );
 
 export const regenerateUsernameAction = async (): Promise<

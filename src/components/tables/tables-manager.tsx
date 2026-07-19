@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { QrCodeIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteTableAction } from "@/actions/table.actions";
@@ -22,12 +23,22 @@ import { groupTablesBySection } from "@/lib/tables";
 import type { TableDTO } from "@/types/table";
 
 import { TableDialog } from "./table-dialog";
+import { TableShareDialog } from "./table-share-dialog";
 
-export function TablesManager({ tables }: { readonly tables: TableDTO[] }) {
+export function TablesManager({
+  tables,
+  username,
+  selfOrderEnabled,
+}: {
+  readonly tables: TableDTO[];
+  readonly username: string;
+  readonly selfOrderEnabled: boolean;
+}) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<TableDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TableDTO | null>(null);
+  const [shareTarget, setShareTarget] = useState<TableDTO | null>(null);
 
   const del = useServerAction(deleteTableAction, {
     refresh: true,
@@ -92,6 +103,15 @@ export function TablesManager({ tables }: { readonly tables: TableDTO[] }) {
                       size="sm"
                       variant="ghost"
                       className="h-8 px-2 text-xs"
+                      onClick={() => setShareTarget(table)}
+                    >
+                      <QrCodeIcon className="size-4" />
+                      Share
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs"
                       onClick={() => openEdit(table)}
                     >
                       Edit
@@ -117,6 +137,15 @@ export function TablesManager({ tables }: { readonly tables: TableDTO[] }) {
           table={editTarget}
           onOpenChange={setDialogOpen}
           onSaved={() => router.refresh()}
+        />
+      ) : null}
+
+      {shareTarget ? (
+        <TableShareDialog
+          table={shareTarget}
+          username={username}
+          selfOrderEnabled={selfOrderEnabled}
+          onOpenChange={(open) => !open && setShareTarget(null)}
         />
       ) : null}
 

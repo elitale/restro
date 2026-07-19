@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { TableSettleDialog } from "@/components/orders/table-settle-dialog";
 import { orderRunningTotal } from "@/components/pos/types";
@@ -9,6 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { KitchenStatusBadge } from "@/components/shared/kitchen-status-badge";
 import { PageHeader } from "@/components/shared/page-header";
+import { SelfOrderBadge } from "@/components/shared/self-order-badge";
+import { SoundToggle } from "@/components/shared/sound-toggle";
+import { useAnnouncer } from "@/hooks/use-announcer";
+import {
+  alertSignatureMap,
+  newOrderAlerts,
+  newOrderPhrase,
+  selfOrderAlertPhrase,
+} from "@/lib/announce";
 import { formatCurrency, formatTime } from "@/lib/format";
 import type { OrderDTO, TodaySalesDTO } from "@/types/order";
 
@@ -62,13 +72,58 @@ export function OrdersBoard({
   const [tab, setTab] = useState<Tab>("OPEN");
   const [settleGroup, setSettleGroup] = useState<TableGroup | null>(null);
 
+  const router = useRouter();
+  const { supported, enabled, toggle, announce } = useAnnouncer();
+  const seenRef = useRef<Map<string, number> | null>(null);
+
   const groups = useMemo(() => groupByTable(open), [open]);
+
+  // Poll every 10s so new orders surface hands-free.
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 10000);
+    return () => clearInterval(id);
+  }, [router]);
+
+  // Voice-announce new orders (self-orders get a distinct phrase) and guest
+  // add-ons to an existing table order.
+  useEffect(() => {
+    const sigs = open.map((o) => ({
+      id: o.id,
+      selfOrderLines: o.lines.filter(
+        (l) => l.state !== "VOID" && l.source === "SELF_ORDER",
+      ).length,
+    }));
+    if (seenRef.current === null) {
+      seenRef.current = alertSignatureMap(sigs);
+      return;
+    }
+    const alerts = newOrderAlerts(seenRef.current, sigs);
+    seenRef.current = alertSignatureMap(sigs);
+    const alert = alerts[0];
+    if (!alert) {
+      return;
+    }
+    const order = open.find((o) => o.id === alert.id);
+    if (order) {
+      announce(
+        alert.isSelfOrder ? selfOrderAlertPhrase(order) : newOrderPhrase(order),
+        "beep",
+      );
+    }
+  }, [open, announce]);
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageHeader title="Orders" description="Live tickets and today's settlements." />
-        <Button render={<Link href="/dashboard/pos" />}>New order</Button>
+        <div className="flex items-center gap-2">
+          <SoundToggle
+            supported={supported}
+            enabled={enabled}
+            onToggle={toggle}
+          />
+          <Button render={<Link href="/dashboard/pos" />}>New order</Button>
+        </div>
       </div>
 
       {/* Today's sales */}
@@ -211,6 +266,11 @@ function OrderCard({
           <span className="flex items-center gap-2">
             {tab === "OPEN" ? (
               <KitchenStatusBadge states={order.lines.map((l) => l.state)} />
+            ) : null}
+            {order.lines.some(
+              (l) => l.state !== "VOID" && l.source === "SELF_ORDER",
+            ) ? (
+              <SelfOrderBadge />
             ) : null}
             <span className="tabular-nums">
               {tab === "COMPLETED"

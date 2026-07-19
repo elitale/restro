@@ -13,6 +13,7 @@ export interface OrderCart {
   readonly changeQty: (key: string, delta: number) => void;
   readonly removeLine: (key: string) => void;
   readonly toggleComp: (key: string) => void;
+  readonly replaceAll: (lines: CartLine[]) => void;
   readonly clear: () => void;
 }
 
@@ -73,7 +74,18 @@ export function useOrderCart(): OrderCart {
       prev.map((l) => (l.key === key ? { ...l, isComp: !l.isComp } : l)),
     );
 
+  const replaceAll = (lines: CartLine[]) => setCart(lines);
+
   const clear = () => setCart([]);
 
-  return { cart, addLine, quickAdd, changeQty, removeLine, toggleComp, clear };
+  return {
+    cart,
+    addLine,
+    quickAdd,
+    changeQty,
+    removeLine,
+    toggleComp,
+    replaceAll,
+    clear,
+  };
 }

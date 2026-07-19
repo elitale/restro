@@ -8,11 +8,17 @@ import { toast } from "sonner";
 
 import { advanceTicketAction } from "@/actions/kitchen.actions";
 import { staffLogoutAction } from "@/actions/staff-auth.actions";
+import { SelfOrderBadge } from "@/components/shared/self-order-badge";
 import { SoundToggle } from "@/components/shared/sound-toggle";
 import { Button } from "@/components/ui/button";
 import { useAnnouncer } from "@/hooks/use-announcer";
 import { useServerAction } from "@/hooks/use-server-action";
-import { newIds, newOrderPhrase } from "@/lib/announce";
+import {
+  alertSignatureMap,
+  newOrderAlerts,
+  newOrderPhrase,
+  selfOrderAlertPhrase,
+} from "@/lib/announce";
 import { KITCHEN_STATUS_LABEL, type KitchenStatus } from "@/lib/kitchen";
 import type { KitchenTicketDTO } from "@/types/kitchen";
 
@@ -27,6 +33,10 @@ const AUTH_ERRORS: Record<string, string> = {
   NO_STAFF_SESSION: "Session expired. Please sign in again.",
 };
 const toMessage = (m: string): string => AUTH_ERRORS[m] ?? m;
+
+/** Active self-order lines on a ticket (drives the "guest added" alert). */
+const selfOrderLineCount = (t: KitchenTicketDTO): number =>
+  t.batches.reduce((s, b) => s + (b.isSelfOrder ? b.lines.length : 0), 0);
 
 const ticketTitle = (t: KitchenTicketDTO): string => {
   if (t.orderType === "DINE_IN") {
@@ -79,10 +89,15 @@ function TicketCard({
       <div className="flex flex-col gap-3 p-4">
         {ticket.batches.map((batch, idx) => (
           <div key={batch.firedAt ?? idx} className="flex flex-col gap-2">
-            {batch.isAddOn ? (
-              <p className="text-xs font-bold tracking-wide text-amber-700 uppercase">
-                ＋ Added {elapsedLabel(batch.firedAt, now)}
-              </p>
+            {batch.isAddOn || batch.isSelfOrder ? (
+              <div className="flex items-center gap-2">
+                {batch.isAddOn ? (
+                  <p className="text-xs font-bold tracking-wide text-amber-700 uppercase">
+                    ＋ Added {elapsedLabel(batch.firedAt, now)}
+                  </p>
+                ) : null}
+                {batch.isSelfOrder ? <SelfOrderBadge /> : null}
+              </div>
             ) : null}
             <ul className="flex flex-col gap-2">
               {batch.lines.map((line) => (
@@ -148,7 +163,7 @@ export function KitchenDisplay({
   const { supported, enabled, toggle, announce } = useAnnouncer();
   const [pending, startTransition] = useTransition();
   const [now, setNow] = useState(() => Date.now());
-  const seenRef = useRef<ReadonlySet<string> | null>(null);
+  const seenRef = useRef<Map<string, number> | null>(null);
 
   // Live timers + lightweight polling so new/updated tickets appear hands-free.
   useEffect(() => {
@@ -163,21 +178,29 @@ export function KitchenDisplay({
     };
   }, [router]);
 
-  // Announce freshly-arrived tickets in Hindi ("Naya order, T1").
+  // Announce freshly-arrived tickets ("Naya order, T1") and guest add-ons
+  // ("Naya self order, T1") in Hindi.
   useEffect(() => {
-    const ids = tickets.map((t) => t.orderId);
+    const sigs = tickets.map((t) => ({
+      id: t.orderId,
+      selfOrderLines: selfOrderLineCount(t),
+    }));
     if (seenRef.current === null) {
-      seenRef.current = new Set(ids);
+      seenRef.current = alertSignatureMap(sigs);
       return;
     }
-    const fresh = newIds(seenRef.current, ids);
-    seenRef.current = new Set(ids);
-    const ticket =
-      fresh.length > 0
-        ? tickets.find((t) => t.orderId === fresh[0])
-        : undefined;
+    const alerts = newOrderAlerts(seenRef.current, sigs);
+    seenRef.current = alertSignatureMap(sigs);
+    const alert = alerts[0];
+    if (!alert) {
+      return;
+    }
+    const ticket = tickets.find((t) => t.orderId === alert.id);
     if (ticket) {
-      announce(newOrderPhrase(ticket), "beep");
+      announce(
+        alert.isSelfOrder ? selfOrderAlertPhrase(ticket) : newOrderPhrase(ticket),
+        "beep",
+      );
     }
   }, [tickets, announce]);
 

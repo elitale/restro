@@ -27,10 +27,13 @@ import { generateUniqueUsername } from "@/services/restaurant.service";
 import {
   fssaiStatus,
   getRestaurantProfile,
+  getSelfOrderEnabled,
+  getSelfOrderShareInfo,
   getServiceOptions,
   getTaxProfile,
   regenerateUsername,
   RESTAURANT_NOT_FOUND,
+  setSelfOrderEnabled,
   updateRestaurantProfile,
   updateTaxProfile,
   updateUsername,
@@ -77,6 +80,7 @@ const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   serviceDelivery: false,
   defaultOrderType: "TAKEAWAY",
   businessHours: null,
+  selfOrderEnabled: false,
   isActive: true,
   onboardedAt: new Date(),
   createdAt: new Date(),
@@ -305,5 +309,56 @@ describe("getServiceOptions", () => {
       delivery: true,
       defaultType: "TAKEAWAY",
     });
+  });
+});
+
+describe("self-ordering flag", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("reads selfOrderEnabled", async () => {
+    vi.mocked(findRestaurantById).mockResolvedValue(
+      makeRestaurant({ selfOrderEnabled: true }),
+    );
+
+    expect(await getSelfOrderEnabled("res_1")).toBe(true);
+  });
+
+  it("throws when the restaurant is missing", async () => {
+    vi.mocked(findRestaurantById).mockResolvedValue(null);
+
+    await expect(getSelfOrderEnabled("res_1")).rejects.toThrow(
+      RESTAURANT_NOT_FOUND,
+    );
+  });
+
+  it("persists the new flag", async () => {
+    await setSelfOrderEnabled("res_1", true);
+
+    expect(updateRestaurant).toHaveBeenCalledWith("res_1", {
+      selfOrderEnabled: true,
+    });
+  });
+});
+
+describe("getSelfOrderShareInfo", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns the username + enabled flag", async () => {
+    vi.mocked(findRestaurantById).mockResolvedValue(
+      makeRestaurant({ username: "elitale", selfOrderEnabled: true }),
+    );
+
+    expect(await getSelfOrderShareInfo("res_1")).toEqual({
+      username: "elitale",
+      enabled: true,
+    });
+  });
+
+  it("throws when the restaurant is missing", async () => {
+    vi.mocked(findRestaurantById).mockResolvedValue(null);
+
+    await expect(getSelfOrderShareInfo("res_1")).rejects.toThrow(
+      RESTAURANT_NOT_FOUND,
+    );
   });
 });

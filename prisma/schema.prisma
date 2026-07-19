@@ -76,6 +76,13 @@ enum DiscountType {
   FLAT
 }
 
+/// Who placed an order line: restaurant STAFF (waiter/POS) or a guest via the
+/// public self-order page (`/order/[username]`).
+enum OrderSource {
+  STAFF
+  SELF_ORDER
+}
+
 /// Restaurant manager / operator account.
 /// Phone number is the primary identifier used to sign in; email is optional
 /// and can be added later for notifications (Resend).
@@ -162,6 +169,9 @@ model Restaurant {
   serviceDelivery  Boolean            @default(false)
   defaultOrderType OrderType          @default(TAKEAWAY)
   businessHours    Json?
+
+  // Public guest self-ordering (`/order/[username]`); off until the owner opts in.
+  selfOrderEnabled Boolean            @default(false)
 
   isActive    Boolean   @default(true)
   onboardedAt DateTime  @default(now())
@@ -467,6 +477,7 @@ model OrderItem {
   taxKind      String         @default("NONE")
   taxInclusive Boolean        @default(false)
   state        OrderLineState @default(UNSENT)
+  source       OrderSource    @default(STAFF)
   isComp       Boolean        @default(false)
   compReason   String?
   firedAt      DateTime?

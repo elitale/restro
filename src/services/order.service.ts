@@ -42,6 +42,8 @@ export interface OrderContext {
   readonly restaurantId: string;
   readonly userId: string | null;
   readonly staffId?: string | null;
+  /** Who placed the lines — defaults to STAFF (waiter/POS). Guests pass SELF_ORDER. */
+  readonly source?: "STAFF" | "SELF_ORDER";
 }
 
 const num = (v: unknown): number => Number(v);
@@ -77,6 +79,7 @@ export const mapOrder = (o: OrderWithRelations): OrderDTO => ({
     lineNote: i.lineNote,
     state: i.state,
     isComp: i.isComp,
+    source: i.source,
     taxRate: num(i.taxRate),
     taxInclusive: i.taxInclusive,
     modifiers: i.modifiers.map((m) => ({
@@ -114,6 +117,7 @@ const snapshotLines = (
   lines: CreateOrderInput["items"],
   startSort: number,
   state: LineState,
+  source: "STAFF" | "SELF_ORDER" = "STAFF",
 ): OrderLineWriteData[] => {
   const itemsById = new Map(menu.items.map((i) => [i.id, i]));
   return lines.map((line, idx) => {
@@ -154,6 +158,7 @@ const snapshotLines = (
       isComp: line.isComp,
       compReason: line.compReason ?? null,
       state,
+      source,
       sortOrder: startSort + idx,
       modifiers,
     };
@@ -187,7 +192,7 @@ export const createOrder = async (
     return mapOrder(existing);
   }
   const menu = await getMenu(ctx.restaurantId);
-  const items = snapshotLines(menu, input.items, 0, "FIRED");
+  const items = snapshotLines(menu, input.items, 0, "FIRED", ctx.source ?? "STAFF");
   const orderNumber = (await maxOrderNumber(ctx.restaurantId)) + 1;
 
   let tableId: string | null = null;
@@ -230,7 +235,13 @@ export const addItems = async (
     throw new Error(ORDER_NOT_OPEN);
   }
   const menu = await getMenu(ctx.restaurantId);
-  const items = snapshotLines(menu, input.items, order.items.length, "UNSENT");
+  const items = snapshotLines(
+    menu,
+    input.items,
+    order.items.length,
+    "UNSENT",
+    ctx.source ?? "STAFF",
+  );
   const updated = await addOrderItems(input.orderId, items);
   await depleteForLines(
     ctx,

@@ -33,6 +33,7 @@ interface LineOptions {
   firedAt?: Date | null;
   modifiers?: string[];
   quantity?: number;
+  source?: string;
 }
 
 const line = (opts: LineOptions = {}): Record<string, unknown> => ({
@@ -42,6 +43,7 @@ const line = (opts: LineOptions = {}): Record<string, unknown> => ({
   quantity: opts.quantity ?? 1,
   lineNote: null,
   state: opts.state ?? "FIRED",
+  source: opts.source ?? "STAFF",
   firedAt: opts.firedAt === undefined ? new Date("2026-01-01T10:00:00Z") : opts.firedAt,
   modifiers: (opts.modifiers ?? []).map((name) => ({ name })),
 });
@@ -91,7 +93,18 @@ describe("listKitchenTickets", () => {
     expect(ticket.advanceLabel).toBe("Start");
     expect(ticket.batches).toHaveLength(1);
     expect(ticket.batches[0].isAddOn).toBe(false);
+    expect(ticket.batches[0].isSelfOrder).toBe(false);
     expect(ticket.batches[0].lines[0].modifiers).toEqual(["No onion"]);
+  });
+
+  it("flags a batch fired by a guest as self-order", async () => {
+    findOrdersMock.mockResolvedValue([
+      order("o1", [line({ state: "FIRED", source: "SELF_ORDER" })]),
+    ]);
+
+    const [ticket] = await listKitchenTickets("r1");
+
+    expect(ticket.batches[0].isSelfOrder).toBe(true);
   });
 
   it("derives PREPARING/Mark ready for a mixed ticket", async () => {

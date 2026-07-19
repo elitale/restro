@@ -49,6 +49,9 @@ const toTicket = (order: OrderWithRelations): KitchenTicketDTO | null => {
   const batches: KitchenTicketBatch[] = keys.map((key, idx) => ({
     firedAt: key || null,
     isAddOn: idx > 0,
+    isSelfOrder: (byBatch.get(key) ?? []).some(
+      (l) => l.source === "SELF_ORDER",
+    ),
     lines: (byBatch.get(key) ?? []).map(mapLine),
   }));
 

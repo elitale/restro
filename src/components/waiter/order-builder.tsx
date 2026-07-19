@@ -167,7 +167,7 @@ export function OrderBuilder({
     });
   };
 
-  const onTapItem = (item: MenuItemDTO) => {
+  const onQuickAdd = (item: MenuItemDTO) => {
     if (item.variants.length > 0 || item.modifierGroups.length > 0) {
       setConfigItem(item);
       return;
@@ -291,7 +291,7 @@ export function OrderBuilder({
         </div>
       ) : null}
 
-      <MenuBrowser menu={menu} onTapItem={onTapItem} />
+      <MenuBrowser menu={menu} onQuickAdd={onQuickAdd} onOpenDetail={setConfigItem} />
 
       {/* Pinned bottom bar */}
       <div className="bg-background fixed inset-x-0 bottom-0 border-t p-3">

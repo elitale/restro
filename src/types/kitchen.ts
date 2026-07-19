@@ -17,6 +17,8 @@ export interface KitchenTicketBatch {
   readonly firedAt: string | null;
   /** `true` for items fired after the original ticket (add-ons). */
   readonly isAddOn: boolean;
+  /** `true` when this batch was placed by a guest via the self-order page. */
+  readonly isSelfOrder: boolean;
   readonly lines: readonly KitchenTicketLine[];
 }
 

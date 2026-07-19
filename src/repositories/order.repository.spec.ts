@@ -41,6 +41,7 @@ vi.mock("@/lib/prisma", () => ({
 import {
   advanceLineStates,
   createOrder,
+  findOrdersForGuest,
   fireUnsentItems,
   maxOrderNumber,
   settleManyOrders,
@@ -62,6 +63,7 @@ const line = (overrides: Partial<OrderLineWriteData> = {}): OrderLineWriteData =
   isComp: false,
   compReason: null,
   state: "FIRED",
+  source: "STAFF",
   sortOrder: 0,
   modifiers: [{ modifierId: "m1", name: "Extra sugar", priceDelta: 5 }],
   ...overrides,
@@ -104,6 +106,24 @@ describe("orderRepository", () => {
 
     orderFindFirst.mockResolvedValue(null);
     await expect(maxOrderNumber("res_1")).resolves.toBe(0);
+  });
+
+  it("findOrdersForGuest matches the phone OR the table, most recent first", async () => {
+    orderFindMany.mockResolvedValue([]);
+
+    await findOrdersForGuest("res_1", "+919876543210", "t1", 15);
+
+    expect(orderFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          restaurantId: "res_1",
+          deletedAt: null,
+          OR: [{ customerPhone: "+919876543210" }, { tableId: "t1" }],
+        },
+        orderBy: { createdAt: "desc" },
+        take: 15,
+      }),
+    );
   });
 
   it("fireUnsentItems fires only UNSENT lines then reloads", async () => {

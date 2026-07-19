@@ -18,6 +18,8 @@ export type LineState =
   | "SERVED"
   | "VOID";
 
+export type OrderLineSource = "STAFF" | "SELF_ORDER";
+
 export interface OrderLineWriteData {
   menuItemId: string | null;
   variantId: string | null;
@@ -32,6 +34,7 @@ export interface OrderLineWriteData {
   isComp: boolean;
   compReason: string | null;
   state: LineState;
+  source: OrderLineSource;
   sortOrder: number;
   modifiers: { modifierId: string | null; name: string; priceDelta: number }[];
 }
@@ -68,6 +71,7 @@ const lineCreate = (items: OrderLineWriteData[]) => {
     isComp: it.isComp,
     compReason: it.compReason,
     state: it.state,
+    source: it.source,
     firedAt: it.state === "FIRED" ? firedAt : null,
     sortOrder: it.sortOrder,
     modifiers: {
@@ -132,6 +136,27 @@ export const findOrdersByRestaurant = (
     include: ORDER_INCLUDE,
     orderBy: { createdAt: "desc" },
     take: 100,
+  });
+
+/**
+ * A guest's own orders: those placed with their verified phone, plus any order
+ * on their current table (so they see the full table bill). Most recent first.
+ */
+export const findOrdersForGuest = (
+  restaurantId: string,
+  phone: string,
+  tableId: string,
+  limit: number,
+): Promise<OrderWithRelations[]> =>
+  prisma.order.findMany({
+    where: {
+      restaurantId,
+      deletedAt: null,
+      OR: [{ customerPhone: phone }, { tableId }],
+    },
+    include: ORDER_INCLUDE,
+    orderBy: { createdAt: "desc" },
+    take: limit,
   });
 
 export const maxOrderNumber = async (restaurantId: string): Promise<number> => {

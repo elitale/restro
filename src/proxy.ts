@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/** Routes reachable without an authenticated session (login + admin preview). */
-const PUBLIC_ROUTES = ["/login", "/admin"];
+/** Routes reachable without an authenticated session (login + admin preview + public guest ordering). */
+const PUBLIC_ROUTES = ["/login", "/admin", "/order"];
 
 /** Auth pages a signed-in user should be redirected away from. */
 const AUTH_ROUTES = ["/login"];

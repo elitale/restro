@@ -13,6 +13,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageCarousel } from "@/components/shared/image-carousel";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MenuItemDTO, MenuModifierGroupDTO } from "@/types/menu";
@@ -51,6 +52,10 @@ export function ItemConfigDialog({
 
   const variant = item.variants.find((v) => v.id === variantId) ?? null;
   const unitPrice = variant ? variant.price : item.price;
+
+  const photos = [...item.images].sort(
+    (a, b) => Number(b.isPrimary) - Number(a.isPrimary),
+  );
 
   const selectedModifiers: CartModifier[] = item.modifierGroups.flatMap((group) =>
     (selection[group.id] ?? []).flatMap((id) => {
@@ -111,6 +116,16 @@ export function ItemConfigDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-5">
+          {photos.length > 0 ? (
+            <ImageCarousel images={photos} alt={item.name} />
+          ) : null}
+
+          {item.shortDescription ? (
+            <p className="text-muted-foreground text-sm">
+              {item.shortDescription}
+            </p>
+          ) : null}
+
           {item.variants.length > 0 ? (
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium">Size</span>

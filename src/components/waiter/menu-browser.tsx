@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 
-import { SearchIcon } from "lucide-react";
+import { PlusIcon, SearchIcon } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { MenuDTO, MenuItemDTO } from "@/types/menu";
 
@@ -15,10 +17,12 @@ const DIET_DOT: Record<string, string> = {
 
 export function MenuBrowser({
   menu,
-  onTapItem,
+  onQuickAdd,
+  onOpenDetail,
 }: {
   readonly menu: MenuDTO;
-  readonly onTapItem: (item: MenuItemDTO) => void;
+  readonly onQuickAdd: (item: MenuItemDTO) => void;
+  readonly onOpenDetail: (item: MenuItemDTO) => void;
 }) {
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -78,42 +82,73 @@ export function MenuBrowser({
           No items found.
         </p>
       ) : (
-        <ul className="flex flex-col gap-1.5">
-          {items.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                disabled={!item.available}
-                onClick={() => onTapItem(item)}
-                className="hover:bg-accent flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors disabled:opacity-50"
+        <ul className="flex flex-col gap-2">
+          {items.map((item) => {
+            const photo =
+              item.images.find((i) => i.isPrimary) ?? item.images[0] ?? null;
+            const hint = !item.available
+              ? "Unavailable"
+              : item.variants.length > 0 || item.modifierGroups.length > 0
+                ? "Options"
+                : null;
+            return (
+              <li
+                key={item.id}
+                className="flex items-center gap-3 rounded-xl border p-2"
               >
-                <span className="flex min-w-0 items-center gap-2">
-                  {item.dietaryType ? (
-                    <span
-                      className={`size-2.5 shrink-0 rounded-full ${DIET_DOT[item.dietaryType] ?? "bg-muted-foreground"}`}
-                      aria-hidden
-                    />
+                <button
+                  type="button"
+                  onClick={() => onOpenDetail(item)}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                >
+                  {photo ? (
+                    <span className="bg-muted relative size-14 shrink-0 overflow-hidden rounded-lg">
+                      <Image
+                        src={photo.url}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                        sizes="56px"
+                      />
+                    </span>
                   ) : null}
                   <span className="min-w-0">
-                    <span className="block truncate font-medium">{item.name}</span>
-                    {!item.available ? (
-                      <span className="text-muted-foreground text-xs">
-                        Unavailable
+                    <span className="flex items-center gap-2">
+                      {item.dietaryType ? (
+                        <span
+                          className={`size-2.5 shrink-0 rounded-full ${DIET_DOT[item.dietaryType] ?? "bg-muted-foreground"}`}
+                          aria-hidden
+                        />
+                      ) : null}
+                      <span className="truncate font-medium">{item.name}</span>
+                    </span>
+                    {item.shortDescription ? (
+                      <span className="text-muted-foreground block truncate text-xs">
+                        {item.shortDescription}
                       </span>
-                    ) : item.variants.length > 0 ||
-                      item.modifierGroups.length > 0 ? (
-                      <span className="text-muted-foreground text-xs">
-                        Options
+                    ) : hint ? (
+                      <span className="text-muted-foreground block text-xs">
+                        {hint}
                       </span>
                     ) : null}
+                    <span className="block text-sm font-medium tabular-nums">
+                      ₹{item.price.toFixed(0)}
+                    </span>
                   </span>
-                </span>
-                <span className="shrink-0 font-medium tabular-nums">
-                  ₹{item.price.toFixed(0)}
-                </span>
-              </button>
-            </li>
-          ))}
+                </button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={!item.available}
+                  onClick={() => onQuickAdd(item)}
+                  aria-label={`Add ${item.name}`}
+                >
+                  <PlusIcon className="size-4" />
+                </Button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

@@ -20,3 +20,9 @@ export const formatTime = (iso: string): string =>
     hour: "2-digit",
     minute: "2-digit",
   });
+
+/** Mask a phone to its last 3 digits for display, e.g. "+919876543210" → "••210". */
+export const maskPhone = (phone: string): string => {
+  const last = phone.replace(/\D/g, "").slice(-3);
+  return last ? `••${last}` : "";
+};

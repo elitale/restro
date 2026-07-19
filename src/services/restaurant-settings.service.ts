@@ -70,6 +70,41 @@ export const updateTaxProfile = async (
   });
 };
 
+/** Whether the public guest self-order page is live for this restaurant. */
+export const getSelfOrderEnabled = async (
+  restaurantId: string,
+): Promise<boolean> => {
+  const restaurant = await findRestaurantById(restaurantId);
+  if (!restaurant || restaurant.deletedAt) {
+    throw new Error(RESTAURANT_NOT_FOUND);
+  }
+  return restaurant.selfOrderEnabled;
+};
+
+export const setSelfOrderEnabled = async (
+  restaurantId: string,
+  enabled: boolean,
+): Promise<void> => {
+  await updateRestaurant(restaurantId, { selfOrderEnabled: enabled });
+};
+
+export interface SelfOrderShareInfo {
+  readonly username: string;
+  readonly enabled: boolean;
+}
+
+/** Username (lazily generated) + self-order flag for building table share links. */
+export const getSelfOrderShareInfo = async (
+  restaurantId: string,
+): Promise<SelfOrderShareInfo> => {
+  const restaurant = await findRestaurantById(restaurantId);
+  if (!restaurant || restaurant.deletedAt) {
+    throw new Error(RESTAURANT_NOT_FOUND);
+  }
+  const username = await resolveUsername(restaurant);
+  return { username, enabled: restaurant.selfOrderEnabled };
+};
+
 // ---------------------------------------------------------------- profile ---
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;

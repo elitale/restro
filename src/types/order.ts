@@ -8,6 +8,7 @@ export type OrderLineState =
   | "SERVED"
   | "VOID";
 export type PaymentMode = "CASH" | "UPI" | "CARD" | "OTHER";
+export type OrderSource = "STAFF" | "SELF_ORDER";
 
 export interface OrderLineModifierDTO {
   readonly id: string;
@@ -24,6 +25,7 @@ export interface OrderLineDTO {
   readonly lineNote: string | null;
   readonly state: OrderLineState;
   readonly isComp: boolean;
+  readonly source: OrderSource;
   readonly taxRate: number;
   readonly taxInclusive: boolean;
   readonly modifiers: readonly OrderLineModifierDTO[];
@@ -68,4 +70,27 @@ export interface TodaySalesDTO {
   readonly discount: number;
   readonly voids: number;
   readonly byMode: readonly { mode: string; amount: number; count: number }[];
+}
+
+export type GuestOrderKitchenStatus = "WAITING" | "PREPARING" | "READY";
+
+export interface GuestOrderSummaryLineDTO {
+  readonly name: string;
+  readonly variantName: string | null;
+  readonly quantity: number;
+  readonly state: OrderLineState;
+}
+
+/** A guest-facing, PII-free view of one of the guest's orders + its status. */
+export interface GuestOrderSummaryDTO {
+  readonly id: string;
+  readonly orderNumber: number;
+  readonly createdAt: string;
+  readonly orderType: OrderType;
+  readonly tableLabel: string | null;
+  readonly status: OrderStatus;
+  readonly kitchenStatus: GuestOrderKitchenStatus | null;
+  readonly itemCount: number;
+  readonly total: number;
+  readonly lines: readonly GuestOrderSummaryLineDTO[];
 }
