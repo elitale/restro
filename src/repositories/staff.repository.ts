@@ -56,6 +56,24 @@ export const softDeleteStaff = (id: string): Promise<Staff> =>
 export const updateStaffPin = (id: string, pinHash: string): Promise<Staff> =>
   prisma.staff.update({ where: { id }, data: { pinHash } });
 
+export const recordStaffLoginFailure = (
+  id: string,
+  data: { failedAttempts: number; lockedUntil: Date | null },
+): Promise<Staff> =>
+  prisma.staff.update({
+    where: { id },
+    data: {
+      loginFailedAttempts: data.failedAttempts,
+      loginLockedUntil: data.lockedUntil,
+    },
+  });
+
+export const resetStaffLoginCounters = (id: string): Promise<Staff> =>
+  prisma.staff.update({
+    where: { id },
+    data: { loginFailedAttempts: 0, loginLockedUntil: null },
+  });
+
 export const setStaffPhoto = (
   id: string,
   photoUrl: string | null,

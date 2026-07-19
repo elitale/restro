@@ -216,6 +216,17 @@ Next 16.2.10 · React 19.2.4 · TypeScript 5 · Tailwind v4 · shadcn/ui + `@bas
 
 ---
 
+## Staff login — waiter/kitchen (SHIPPED — `.plan/staff-login.md`)
+
+- **`/u/[username]/login`** — restaurant-scoped (username = `Restaurant.username`). Waiter/kitchen sign in via a **name/photo picker → PIN pad** (`listLoginStaff` lists ACTIVE waiter/kitchen; tapping a tile supplies its `employeeCode` behind the scenes — login action/service still take employeeCode+pin). `MANAGEMENT` excluded; manager OTP login untouched. **Tradeoff:** the waiter/kitchen roster is visible on the public login page. Landing `/u/[username]` is a **minimal role stub** (POS/KDS = fast-follow).
+- **Separate session:** `lib/staff-session.ts` → `restro_staff` jose JWT (`sub=staffId`, `restaurantId`, `role`), **12h**, httpOnly. Fully independent of the manager `restro_session`. `lib/staff-auth.ts` `getStaffContextOrNull()` **re-reads the Staff row every request** (instant deactivation) + enforces ACTIVE + role∈{WAITER,KITCHEN} + session.restaurantId === staff.restaurantId.
+- **Service `staff-auth.service.ts`:** `verifyStaffLogin(restaurantId, employeeCode, pin)` (uses `hashStaffPin`; generic `STAFF_LOGIN_INVALID`; lockout `MAX_STAFF_ATTEMPTS=5` → 60s `STAFF_LOGIN_LOCKED`) + `getStaffLoginRestaurant(username)`. Staff lockout cols `loginFailedAttempts`/`loginLockedUntil` (migration `add_staff_login_lockout`) + repo `recordStaffLoginFailure`/`resetStaffLoginCounters`.
+- **Actions `staff-auth.actions.ts`:** `staffLoginAction` (resolve restaurant by username → verify → `createStaffSession`) + `staffLogoutAction(username)`. Validator `staffLoginSchema` (username+employeeCode+pin) in `lib/validators/staff.ts`.
+- **Proxy:** `/u/**` routed on `restro_staff` (separate from manager cookie); `/u/[username]/login` public, other `/u` pages require the staff cookie. UI: `app/u/[username]/login` + `page` (gated), `components/staff-login/staff-login-form.tsx` (numeric PIN pad) + `staff-home.tsx`.
+- **Accepted residual (agents):** shared PINs ⇒ identity comes from Employee ID (login attribution fine); v1.1 = waiter-POS/kitchen-KDS destination, name/photo grid on provisioned device, station-mode KDS, unique PINs for void/comp accountability, offline.
+
+---
+
 ## Notes / Gotchas
 
 - **`AGENT.md` vs `AGENTS.md`:** `.github/copilot-instructions.md` says "AGENT.md", but the live file imported by `CLAUDE.md` is **`AGENTS.md`**. Treat `AGENTS.md` as the source of truth.

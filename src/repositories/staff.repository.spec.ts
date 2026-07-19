@@ -14,6 +14,8 @@ vi.mock("@/lib/prisma", () => ({
 import {
   createStaff,
   findStaffByRestaurant,
+  recordStaffLoginFailure,
+  resetStaffLoginCounters,
   softDeleteStaff,
   updateStaffPin,
   type StaffWriteData,
@@ -87,6 +89,29 @@ describe("staffRepository", () => {
     expect(update).toHaveBeenCalledWith({
       where: { id: "st1" },
       data: { pinHash: "newhash" },
+    });
+  });
+
+  it("recordStaffLoginFailure writes the attempt count + lock", async () => {
+    const lockedUntil = new Date("2026-02-01T00:00:00.000Z");
+    update.mockResolvedValue({});
+
+    await recordStaffLoginFailure("st1", { failedAttempts: 5, lockedUntil });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "st1" },
+      data: { loginFailedAttempts: 5, loginLockedUntil: lockedUntil },
+    });
+  });
+
+  it("resetStaffLoginCounters clears attempts + lock", async () => {
+    update.mockResolvedValue({});
+
+    await resetStaffLoginCounters("st1");
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "st1" },
+      data: { loginFailedAttempts: 0, loginLockedUntil: null },
     });
   });
 });

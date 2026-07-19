@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { idSchema } from "@/lib/validators/shared";
+import { usernameSchema } from "@/lib/validators/restaurant";
 
 export const staffRoleSchema = z.enum(["WAITER", "KITCHEN", "MANAGEMENT"]);
 export const staffStatusSchema = z.enum(["ACTIVE", "ON_LEAVE", "INACTIVE"]);
@@ -50,3 +51,10 @@ export type DeleteStaffInput = z.infer<typeof deleteStaffSchema>;
 
 export const resetPinSchema = z.object({ id: idSchema, pin: pinSchema });
 export type ResetPinInput = z.infer<typeof resetPinSchema>;
+
+export const staffLoginSchema = z.object({
+  username: usernameSchema,
+  employeeCode: z.string().trim().min(1, "Employee ID is required").max(40),
+  pin: pinSchema,
+});
+export type StaffLoginInput = z.infer<typeof staffLoginSchema>;

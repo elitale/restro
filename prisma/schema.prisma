@@ -639,6 +639,8 @@ model Staff {
   emergencyContactPhone String?
   notes                 String?
   pinHash               String
+  loginFailedAttempts   Int             @default(0)
+  loginLockedUntil      DateTime?
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   deletedAt             DateTime?
