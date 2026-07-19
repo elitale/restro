@@ -39,9 +39,11 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import {
+  advanceLineStates,
   createOrder,
   fireUnsentItems,
   maxOrderNumber,
+  settleManyOrders,
   settleOrder,
   type OrderLineWriteData,
 } from "./order.repository";
@@ -118,6 +120,17 @@ describe("orderRepository", () => {
     );
   });
 
+  it("advanceLineStates moves matching lines and returns the count", async () => {
+    orderItemUpdateMany.mockResolvedValue({ count: 3 });
+
+    await expect(advanceLineStates("o1", "FIRED", "PREPARING")).resolves.toBe(3);
+
+    expect(orderItemUpdateMany).toHaveBeenCalledWith({
+      where: { orderId: "o1", state: "FIRED" },
+      data: { state: "PREPARING" },
+    });
+  });
+
   it("settleOrder assigns a gap-free invoice number atomically", async () => {
     const txOrderUpdate = vi.fn().mockResolvedValue({ id: "o1", invoiceNumber: 1 });
     const txRestaurantUpdate = vi.fn().mockResolvedValue({ nextInvoiceSeq: 2 });
@@ -158,5 +171,47 @@ describe("orderRepository", () => {
     expect(orderArg.data.invoiceNumber).toBe(1);
     expect(orderArg.data.status).toBe("COMPLETED");
     expect(orderArg.data.payments.create[0].mode).toBe("CASH");
+  });
+
+  it("settleManyOrders settles every order in a single transaction", async () => {
+    const txOrderUpdate = vi.fn().mockResolvedValue({ id: "o", invoiceNumber: 1 });
+    const txRestaurantUpdate = vi.fn().mockResolvedValue({ nextInvoiceSeq: 2 });
+    transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
+      cb({
+        restaurant: { update: txRestaurantUpdate },
+        order: { update: txOrderUpdate },
+      }),
+    );
+
+    const data = {
+      subtotal: 100,
+      taxTotal: 5,
+      discountType: "NONE" as const,
+      discountValue: 0,
+      discountReason: null,
+      discountTotal: 0,
+      compTotal: 0,
+      roundOff: 0,
+      grandTotal: 105,
+      payments: [
+        {
+          mode: "CASH" as const,
+          amount: 105,
+          tendered: null,
+          reference: null,
+          receivedById: "u1",
+        },
+      ],
+    };
+
+    await settleManyOrders("res_1", [
+      { orderId: "o1", data },
+      { orderId: "o2", data },
+    ]);
+
+    expect(txOrderUpdate).toHaveBeenCalledTimes(2);
+    expect(txRestaurantUpdate).toHaveBeenCalledTimes(2);
+    expect(txOrderUpdate.mock.calls[0][0].where).toEqual({ id: "o1" });
+    expect(txOrderUpdate.mock.calls[1][0].where).toEqual({ id: "o2" });
   });
 });

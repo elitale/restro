@@ -7,6 +7,7 @@ import {
   fireOrderSchema,
   serveLineSchema,
   settleSchema,
+  settleTableSchema,
   voidLineSchema,
   voidOrderSchema,
 } from "@/lib/validators/order";
@@ -18,7 +19,7 @@ import {
   voidLine,
   voidWholeOrder,
 } from "@/services/order.service";
-import { settle } from "@/services/settlement.service";
+import { settle, settleTable } from "@/services/settlement.service";
 
 export const createOrderAction = withManagerValidation(
   createOrderSchema,
@@ -50,4 +51,9 @@ export const voidOrderAction = withManagerValidation(
 
 export const settleOrderAction = withManagerValidation(settleSchema, (data, ctx) =>
   settle(ctx, data),
+);
+
+export const settleTableAction = withManagerValidation(
+  settleTableSchema,
+  (data, ctx) => settleTable(ctx, data),
 );

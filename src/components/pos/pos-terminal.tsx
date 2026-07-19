@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useServerAction } from "@/hooks/use-server-action";
 import { formatCurrency } from "@/lib/format";
+import { uuid } from "@/lib/uuid";
 import { computeBill } from "@/services/billing";
 import type { MenuDTO, MenuItemDTO } from "@/types/menu";
 import type { OrderType } from "@/types/order";
@@ -134,7 +135,7 @@ export function PosTerminal({
     }
     createOrder.execute({
       orderType,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey: uuid(),
       tableId: orderType === "DINE_IN" ? (tableId ?? undefined) : undefined,
       tableLabel:
         orderType === "DINE_IN" && !tableId

@@ -1,6 +1,12 @@
 export type OrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
 export type OrderStatus = "OPEN" | "COMPLETED" | "VOID";
-export type OrderLineState = "UNSENT" | "FIRED" | "SERVED" | "VOID";
+export type OrderLineState =
+  | "UNSENT"
+  | "FIRED"
+  | "PREPARING"
+  | "PREPARED"
+  | "SERVED"
+  | "VOID";
 export type PaymentMode = "CASH" | "UPI" | "CARD" | "OTHER";
 
 export interface OrderLineModifierDTO {

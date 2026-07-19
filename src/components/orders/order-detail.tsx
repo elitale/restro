@@ -29,6 +29,8 @@ const STATE_BADGE: Record<
 > = {
   UNSENT: { label: "Unsent", className: "bg-muted text-muted-foreground" },
   FIRED: { label: "Fired", className: "bg-amber-100 text-amber-800" },
+  PREPARING: { label: "Preparing", className: "bg-sky-100 text-sky-800" },
+  PREPARED: { label: "Prepared", className: "bg-emerald-100 text-emerald-800" },
   SERVED: { label: "Served", className: "bg-green-100 text-green-800" },
   VOID: { label: "Void", className: "bg-red-100 text-red-800" },
 };

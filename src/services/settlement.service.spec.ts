@@ -8,11 +8,19 @@ vi.mock("@/services/order.service", () => ({
   mapOrder: vi.fn((o: unknown) => o),
   ORDER_NOT_OPEN: "ORDER_NOT_OPEN",
 }));
-vi.mock("@/repositories/order.repository", () => ({ settleOrder: vi.fn() }));
+vi.mock("@/repositories/order.repository", () => ({
+  settleOrder: vi.fn(),
+  settleManyOrders: vi.fn(),
+}));
 
-import { settleOrder } from "@/repositories/order.repository";
+import { settleManyOrders, settleOrder } from "@/repositories/order.repository";
 import { loadOwnedOrder, orderToBillLines } from "@/services/order.service";
-import { PAYMENT_SHORT, settle } from "./settlement.service";
+import {
+  allocatePayments,
+  PAYMENT_SHORT,
+  settle,
+  settleTable,
+} from "./settlement.service";
 
 const ctx = { restaurantId: "res_1", userId: "u1" };
 const asOrder = (o: object) => o as unknown as OrderWithRelations;
@@ -75,5 +83,68 @@ describe("settle", () => {
         payments: [{ mode: "CASH", amount: 105 }],
       }),
     ).rejects.toThrow("ORDER_NOT_OPEN");
+  });
+});
+
+describe("allocatePayments", () => {
+  it("waterfalls a split payment across orders", () => {
+    const alloc = allocatePayments(
+      [
+        { orderId: "a", grandTotal: 200 },
+        { orderId: "b", grandTotal: 300 },
+      ],
+      [
+        { mode: "CASH", amount: 300, reference: null },
+        { mode: "CARD", amount: 200, reference: null },
+      ],
+    );
+    expect(alloc.get("a")).toEqual([
+      { mode: "CASH", amount: 200, reference: null },
+    ]);
+    expect(alloc.get("b")).toEqual([
+      { mode: "CASH", amount: 100, reference: null },
+      { mode: "CARD", amount: 200, reference: null },
+    ]);
+  });
+});
+
+describe("settleTable", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(loadOwnedOrder).mockImplementation((_r: string, id: string) =>
+      Promise.resolve(asOrder({ id, status: "OPEN" })),
+    );
+    vi.mocked(orderToBillLines).mockReturnValue(billLines); // ₹105 each
+    vi.mocked(settleManyOrders).mockResolvedValue([
+      asOrder({ id: "o1" }),
+      asOrder({ id: "o2" }),
+    ]);
+  });
+
+  it("settles every table order with one combined payment", async () => {
+    await settleTable(ctx, {
+      orderIds: ["o1", "o2"],
+      payments: [{ mode: "CASH", amount: 210, tendered: 210 }],
+    });
+
+    const settlements = vi.mocked(settleManyOrders).mock.calls[0][1];
+    expect(settlements).toHaveLength(2);
+    expect(settlements[0].data.grandTotal).toBe(105);
+    expect(settlements[0].data.payments[0]).toMatchObject({
+      mode: "CASH",
+      amount: 105,
+      receivedById: "u1",
+    });
+    expect(settlements[1].data.payments[0].amount).toBe(105);
+  });
+
+  it("rejects when the combined tender is short", async () => {
+    await expect(
+      settleTable(ctx, {
+        orderIds: ["o1", "o2"],
+        payments: [{ mode: "CASH", amount: 100 }],
+      }),
+    ).rejects.toThrow(PAYMENT_SHORT);
+    expect(settleManyOrders).not.toHaveBeenCalled();
   });
 });

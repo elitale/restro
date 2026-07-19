@@ -10,7 +10,13 @@ export type OrderWithRelations = Prisma.OrderGetPayload<{
   include: typeof ORDER_INCLUDE;
 }>;
 
-export type LineState = "UNSENT" | "FIRED" | "SERVED" | "VOID";
+export type LineState =
+  | "UNSENT"
+  | "FIRED"
+  | "PREPARING"
+  | "PREPARED"
+  | "SERVED"
+  | "VOID";
 
 export interface OrderLineWriteData {
   menuItemId: string | null;
@@ -46,8 +52,9 @@ export interface CreateOrderData {
   items: OrderLineWriteData[];
 }
 
-const lineCreate = (items: OrderLineWriteData[]) =>
-  items.map((it) => ({
+const lineCreate = (items: OrderLineWriteData[]) => {
+  const firedAt = new Date();
+  return items.map((it) => ({
     menuItemId: it.menuItemId,
     variantId: it.variantId,
     name: it.name,
@@ -61,7 +68,7 @@ const lineCreate = (items: OrderLineWriteData[]) =>
     isComp: it.isComp,
     compReason: it.compReason,
     state: it.state,
-    firedAt: it.state === "FIRED" ? new Date() : null,
+    firedAt: it.state === "FIRED" ? firedAt : null,
     sortOrder: it.sortOrder,
     modifiers: {
       create: it.modifiers.map((m) => ({
@@ -71,6 +78,7 @@ const lineCreate = (items: OrderLineWriteData[]) =>
       })),
     },
   }));
+};
 
 export const createOrder = (
   data: CreateOrderData,
@@ -169,6 +177,19 @@ export const setLineState = async (
   });
 };
 
+/** Bulk-advance every line of an order from one state to another (KDS). */
+export const advanceLineStates = async (
+  orderId: string,
+  from: LineState,
+  to: LineState,
+): Promise<number> => {
+  const { count } = await prisma.orderItem.updateMany({
+    where: { orderId, state: from },
+    data: { state: to },
+  });
+  return count;
+};
+
 export const voidOrder = (
   id: string,
   voidedById: string | null,
@@ -198,47 +219,71 @@ export interface SettleData {
   }[];
 }
 
+const settleWithinTx = async (
+  tx: Prisma.TransactionClient,
+  id: string,
+  restaurantId: string,
+  data: SettleData,
+): Promise<OrderWithRelations> => {
+  const seq = await tx.restaurant.update({
+    where: { id: restaurantId },
+    data: { nextInvoiceSeq: { increment: 1 } },
+    select: { nextInvoiceSeq: true },
+  });
+  const invoiceNumber = seq.nextInvoiceSeq - 1;
+
+  return tx.order.update({
+    where: { id },
+    data: {
+      status: "COMPLETED",
+      settledAt: new Date(),
+      invoiceNumber,
+      subtotal: data.subtotal,
+      taxTotal: data.taxTotal,
+      discountType: data.discountType,
+      discountValue: data.discountValue,
+      discountReason: data.discountReason,
+      discountTotal: data.discountTotal,
+      compTotal: data.compTotal,
+      roundOff: data.roundOff,
+      grandTotal: data.grandTotal,
+      payments: {
+        create: data.payments.map((p) => ({
+          mode: p.mode,
+          amount: p.amount,
+          tendered: p.tendered,
+          reference: p.reference,
+          receivedById: p.receivedById,
+        })),
+      },
+    },
+    include: ORDER_INCLUDE,
+  });
+};
+
 /** Assign the next gap-free invoice number + record settlement, atomically. */
 export const settleOrder = (
   id: string,
   restaurantId: string,
   data: SettleData,
 ): Promise<OrderWithRelations> =>
-  prisma.$transaction(async (tx) => {
-    const seq = await tx.restaurant.update({
-      where: { id: restaurantId },
-      data: { nextInvoiceSeq: { increment: 1 } },
-      select: { nextInvoiceSeq: true },
-    });
-    const invoiceNumber = seq.nextInvoiceSeq - 1;
+  prisma.$transaction((tx) => settleWithinTx(tx, id, restaurantId, data));
 
-    return tx.order.update({
-      where: { id },
-      data: {
-        status: "COMPLETED",
-        settledAt: new Date(),
-        invoiceNumber,
-        subtotal: data.subtotal,
-        taxTotal: data.taxTotal,
-        discountType: data.discountType,
-        discountValue: data.discountValue,
-        discountReason: data.discountReason,
-        discountTotal: data.discountTotal,
-        compTotal: data.compTotal,
-        roundOff: data.roundOff,
-        grandTotal: data.grandTotal,
-        payments: {
-          create: data.payments.map((p) => ({
-            mode: p.mode,
-            amount: p.amount,
-            tendered: p.tendered,
-            reference: p.reference,
-            receivedById: p.receivedById,
-          })),
-        },
-      },
-      include: ORDER_INCLUDE,
-    });
+/**
+ * Settle several orders (e.g. all of a table's open tickets) in one
+ * transaction. Each order keeps its own sequential invoice number, and the
+ * whole batch is all-or-nothing.
+ */
+export const settleManyOrders = (
+  restaurantId: string,
+  settlements: readonly { orderId: string; data: SettleData }[],
+): Promise<OrderWithRelations[]> =>
+  prisma.$transaction(async (tx) => {
+    const settled: OrderWithRelations[] = [];
+    for (const s of settlements) {
+      settled.push(await settleWithinTx(tx, s.orderId, restaurantId, s.data));
+    }
+    return settled;
   });
 
 export const findSettledOrdersSince = (

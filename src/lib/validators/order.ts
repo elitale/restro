@@ -43,6 +43,10 @@ export type AddItemsInput = z.infer<typeof addItemsSchema>;
 export const fireOrderSchema = z.object({ orderId: idSchema });
 export type FireOrderInput = z.infer<typeof fireOrderSchema>;
 
+/** Kitchen/waiter ticket actions that operate on a whole order (advance, pickup). */
+export const kitchenTicketSchema = z.object({ orderId: idSchema });
+export type KitchenTicketInput = z.infer<typeof kitchenTicketSchema>;
+
 export const serveLineSchema = z.object({ orderId: idSchema, itemId: idSchema });
 export type ServeLineInput = z.infer<typeof serveLineSchema>;
 
@@ -80,3 +84,9 @@ export const settleSchema = z
     path: ["discountValue"],
   });
 export type SettleInput = z.infer<typeof settleSchema>;
+
+export const settleTableSchema = z.object({
+  orderIds: z.array(idSchema).min(1, "Select at least one order"),
+  payments: z.array(paymentSchema).min(1, "Add at least one payment"),
+});
+export type SettleTableInput = z.infer<typeof settleTableSchema>;

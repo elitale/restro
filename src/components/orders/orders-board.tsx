@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 
+import { TableSettleDialog } from "@/components/orders/table-settle-dialog";
+import { orderRunningTotal } from "@/components/pos/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { KitchenStatusBadge } from "@/components/shared/kitchen-status-badge";
 import { PageHeader } from "@/components/shared/page-header";
 import { formatCurrency, formatTime } from "@/lib/format";
 import type { OrderDTO, TodaySalesDTO } from "@/types/order";
@@ -13,6 +16,39 @@ type Tab = "OPEN" | "COMPLETED";
 
 const activeCount = (lines: OrderDTO["lines"]) =>
   lines.filter((l) => l.state !== "VOID").reduce((s, l) => s + l.quantity, 0);
+
+const round2 = (n: number): number =>
+  Math.round((n + Number.EPSILON) * 100) / 100;
+
+interface TableGroup {
+  readonly key: string;
+  readonly tableLabel: string | null;
+  readonly orders: readonly OrderDTO[];
+  readonly total: number;
+}
+
+/** Group open orders by table, preserving first-seen order. Orders without a
+ *  table stay on their own. */
+const groupByTable = (orders: readonly OrderDTO[]): TableGroup[] => {
+  const map = new Map<string, OrderDTO[]>();
+  for (const order of orders) {
+    const key =
+      order.tableId ??
+      (order.tableLabel ? `label:${order.tableLabel}` : `solo:${order.id}`);
+    const bucket = map.get(key);
+    if (bucket) {
+      bucket.push(order);
+    } else {
+      map.set(key, [order]);
+    }
+  }
+  return [...map.entries()].map(([key, group]) => ({
+    key,
+    tableLabel: group[0]?.tableLabel ?? null,
+    orders: group,
+    total: round2(group.reduce((s, o) => s + orderRunningTotal(o), 0)),
+  }));
+};
 
 export function OrdersBoard({
   open,
@@ -24,7 +60,9 @@ export function OrdersBoard({
   readonly sales: TodaySalesDTO;
 }) {
   const [tab, setTab] = useState<Tab>("OPEN");
-  const orders = tab === "OPEN" ? open : completed;
+  const [settleGroup, setSettleGroup] = useState<TableGroup | null>(null);
+
+  const groups = useMemo(() => groupByTable(open), [open]);
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-6">
@@ -68,50 +106,121 @@ export function OrdersBoard({
         </Button>
       </div>
 
-      {orders.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          {tab === "OPEN" ? "No open tickets." : "No settled orders today."}
-        </p>
+      {tab === "COMPLETED" ? (
+        completed.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No settled orders today.
+          </p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {completed.map((order) => (
+              <OrderCard key={order.id} order={order} tab={tab} />
+            ))}
+          </ul>
+        )
+      ) : open.length === 0 ? (
+        <p className="text-muted-foreground text-sm">No open tickets.</p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {orders.map((order) => (
-            <li key={order.id}>
-              <Link
-                href={`/dashboard/orders/${order.id}`}
-                className="hover:border-primary flex flex-col gap-2 rounded-lg border p-4 transition-colors"
+        <div className="flex flex-col gap-5">
+          {groups.map((group) =>
+            group.orders.length >= 2 && group.tableLabel ? (
+              <div
+                key={group.key}
+                className="flex flex-col gap-3 rounded-xl border p-3"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">
-                    #{order.orderNumber}
-                    {order.invoiceNumber ? (
-                      <span className="text-muted-foreground font-normal">
-                        {" "}
-                        · Inv {order.invoiceNumber}
-                      </span>
-                    ) : null}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-medium">
+                    {group.tableLabel} · {group.orders.length} orders ·{" "}
+                    <span className="tabular-nums">
+                      {formatCurrency(group.total)}
+                    </span>
                   </span>
-                  <span className="text-muted-foreground text-xs">
-                    {formatTime(order.createdAt)}
-                  </span>
+                  <Button size="sm" onClick={() => setSettleGroup(group)}>
+                    Settle table
+                  </Button>
                 </div>
-                <div className="text-muted-foreground flex items-center justify-between text-sm">
-                  <span>
-                    {order.orderType.replace("_", "-")}
-                    {order.tableLabel ? ` · ${order.tableLabel}` : ""}
-                    {order.customerName ? ` · ${order.customerName}` : ""}
-                  </span>
-                  <span className="tabular-nums">
-                    {tab === "COMPLETED"
-                      ? formatCurrency(order.grandTotal)
-                      : `${activeCount(order.lines)} items`}
-                  </span>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.orders.map((order) => (
+                    <OrderCard key={order.id} order={order} tab={tab} />
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <ul
+                key={group.key}
+                className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {group.orders.map((order) => (
+                  <OrderCard key={order.id} order={order} tab={tab} />
+                ))}
+              </ul>
+            ),
+          )}
+        </div>
       )}
+
+      {settleGroup ? (
+        <TableSettleDialog
+          tableLabel={settleGroup.tableLabel ?? "table"}
+          orders={settleGroup.orders}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              setSettleGroup(null);
+            }
+          }}
+          onSettled={() => setSettleGroup(null)}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function OrderCard({
+  order,
+  tab,
+}: {
+  readonly order: OrderDTO;
+  readonly tab: Tab;
+}) {
+  return (
+    <li>
+      <Link
+        href={`/dashboard/orders/${order.id}`}
+        className="hover:border-primary flex flex-col gap-2 rounded-lg border p-4 transition-colors"
+      >
+        <div className="flex items-center justify-between">
+          <span className="font-medium">
+            #{order.orderNumber}
+            {order.invoiceNumber ? (
+              <span className="text-muted-foreground font-normal">
+                {" "}
+                · Inv {order.invoiceNumber}
+              </span>
+            ) : null}
+          </span>
+          <span className="text-muted-foreground text-xs">
+            {formatTime(order.createdAt)}
+          </span>
+        </div>
+        <div className="text-muted-foreground flex items-center justify-between text-sm">
+          <span>
+            {order.orderType.replace("_", "-")}
+            {order.tableLabel ? ` · ${order.tableLabel}` : ""}
+            {order.customerName ? ` · ${order.customerName}` : ""}
+          </span>
+          <span className="flex items-center gap-2">
+            {tab === "OPEN" ? (
+              <KitchenStatusBadge states={order.lines.map((l) => l.state)} />
+            ) : null}
+            <span className="tabular-nums">
+              {tab === "COMPLETED"
+                ? formatCurrency(order.grandTotal)
+                : `${activeCount(order.lines)} items`}
+            </span>
+          </span>
+        </div>
+      </Link>
+    </li>
   );
 }
 

@@ -10,9 +10,11 @@ import {
   addWaiterItemsAction,
   createWaiterOrderAction,
 } from "@/actions/staff-order.actions";
+import { markPickedUpAction } from "@/actions/kitchen.actions";
 import { ItemConfigDialog } from "@/components/pos/item-config-dialog";
 import { modifiersDelta, orderRunningTotal, toBillLine } from "@/components/pos/types";
 import { useOrderCart } from "@/components/pos/use-order-cart";
+import { KitchenStatusBadge } from "@/components/shared/kitchen-status-badge";
 import { MenuBrowser } from "@/components/waiter/menu-browser";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +27,8 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useServerAction } from "@/hooks/use-server-action";
+import { deriveKitchenStatus } from "@/lib/kitchen";
+import { uuid } from "@/lib/uuid";
 import { computeBill } from "@/services/billing";
 import type { MenuDTO, MenuItemDTO } from "@/types/menu";
 import type { OrderDTO, OrderType } from "@/types/order";
@@ -86,7 +90,7 @@ export function OrderBuilder({
   const [tableOpen, setTableOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
 
-  const idempotencyKey = useRef(crypto.randomUUID());
+  const idempotencyKey = useRef(uuid());
 
   const bill = useMemo(
     () => computeBill(cart.cart.map(toBillLine)),
@@ -97,6 +101,8 @@ export function OrderBuilder({
   const tableName = selectedTable?.label ?? (tableLabel.trim() || null);
 
   const sentLines = existingOrder?.lines.filter((l) => l.state !== "VOID") ?? [];
+  const kitchenStates = sentLines.map((l) => l.state);
+  const isReadyForPickup = deriveKitchenStatus(kitchenStates) === "READY";
   const existingTotal = useMemo(
     () => (existingOrder ? orderRunningTotal(existingOrder) : 0),
     [existingOrder],
@@ -107,7 +113,7 @@ export function OrderBuilder({
   const done = () => {
     toast.success(mode === "new" ? "Sent to kitchen ✓" : "Items sent ✓");
     cart.clear();
-    idempotencyKey.current = crypto.randomUUID();
+    idempotencyKey.current = uuid();
     router.push(`/u/${username}`);
   };
 
@@ -117,6 +123,12 @@ export function OrderBuilder({
   });
   const addItems = useServerAction(addWaiterItemsAction, {
     onSuccess: done,
+    onError: (m) => toast.error(toMessage(m)),
+  });
+
+  const pickup = useServerAction(markPickedUpAction, {
+    refresh: true,
+    onSuccess: () => toast.success("Picked up ✓"),
     onError: (m) => toast.error(toMessage(m)),
   });
 
@@ -218,7 +230,10 @@ export function OrderBuilder({
       {mode === "add" && existingOrder ? (
         <div className="mb-3 rounded-xl border">
           <div className="flex items-center justify-between border-b px-3 py-2">
-            <span className="text-sm font-medium">Sent to kitchen</span>
+            <span className="flex items-center gap-2 text-sm font-medium">
+              Sent to kitchen
+              <KitchenStatusBadge states={kitchenStates} />
+            </span>
             <span className="text-muted-foreground text-xs">Read-only</span>
           </div>
           <ul className="divide-y">
@@ -260,6 +275,19 @@ export function OrderBuilder({
               ₹{existingTotal.toFixed(2)}
             </span>
           </div>
+          {isReadyForPickup ? (
+            <div className="border-t p-2">
+              <Button
+                className="h-12 w-full text-base"
+                disabled={pickup.isPending}
+                onClick={() =>
+                  pickup.execute({ orderId: existingOrder.id })
+                }
+              >
+                Picked up
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

@@ -57,6 +57,8 @@ enum OrderStatus {
 enum OrderLineState {
   UNSENT
   FIRED
+  PREPARING
+  PREPARED
   SERVED
   VOID
 }

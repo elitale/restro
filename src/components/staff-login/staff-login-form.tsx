@@ -158,6 +158,9 @@ export function StaffLoginForm({
                       {ROLE_LABEL[option.role] ?? option.role}
                     </span>
                   </span>
+                  <span className="bg-primary text-primary-foreground inline-flex shrink-0 items-center rounded-lg px-3 py-1.5 text-sm font-semibold">
+                    Login
+                  </span>
                 </button>
               </li>
             ))}

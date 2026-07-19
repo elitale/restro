@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { StaffHome } from "@/components/staff-login/staff-home";
+import { KitchenDisplay } from "@/components/kitchen/kitchen-display";
 import { WaiterHome } from "@/components/waiter/waiter-home";
 import { getStaffContextOrNull } from "@/lib/staff-auth";
+import { listKitchenTickets } from "@/services/kitchen.service";
 import { listOrders } from "@/services/order.service";
 import { getStaffLoginRestaurant } from "@/services/staff-auth.service";
 
@@ -39,11 +40,11 @@ export default async function StaffHomePage({
 
   return (
     <main className="min-h-svh">
-      <StaffHome
+      <KitchenDisplay
         username={restaurant.username}
-        name={ctx.name}
-        role={ctx.role}
         restaurantName={restaurant.name}
+        staffName={ctx.name}
+        tickets={await listKitchenTickets(ctx.restaurantId)}
       />
     </main>
   );

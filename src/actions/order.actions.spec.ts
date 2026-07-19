@@ -11,15 +11,19 @@ vi.mock("@/services/order.service", () => ({
   voidLine: vi.fn(),
   voidWholeOrder: vi.fn(),
 }));
-vi.mock("@/services/settlement.service", () => ({ settle: vi.fn() }));
+vi.mock("@/services/settlement.service", () => ({
+  settle: vi.fn(),
+  settleTable: vi.fn(),
+}));
 
 import { getManagerContextOrNull } from "@/lib/manager-auth";
 import { createOrder, fireOrder } from "@/services/order.service";
-import { settle } from "@/services/settlement.service";
+import { settle, settleTable } from "@/services/settlement.service";
 import {
   createOrderAction,
   fireOrderAction,
   settleOrderAction,
+  settleTableAction,
 } from "./order.actions";
 
 const CTX = { userId: "u1", restaurantId: "res_1" };
@@ -71,6 +75,19 @@ describe("order actions", () => {
     expect(settle).toHaveBeenCalledWith(
       CTX,
       expect.objectContaining({ orderId: "o1" }),
+    );
+  });
+
+  it("settleTableAction settles all the table's orders", async () => {
+    const result = await settleTableAction({
+      orderIds: ["o1", "o2"],
+      payments: [{ mode: "CASH", amount: 210 }],
+    });
+
+    expect(result.success).toBe(true);
+    expect(settleTable).toHaveBeenCalledWith(
+      CTX,
+      expect.objectContaining({ orderIds: ["o1", "o2"] }),
     );
   });
 
