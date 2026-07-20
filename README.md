@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ElitaleRestro
 
-## Getting Started
+An open-source **restaurant management platform** — POS, kitchen display (KDS), orders & tables, inventory with recipe-based auto-depletion, GST-aware billing/invoicing, staff management, a manager analytics dashboard, and a public QR self-ordering flow for guests.
 
-First, run the development server:
+Built with a strict layered architecture (**UI → Server Actions → Services → Repositories → DB**) and test-driven development.
+
+## Tech stack
+
+- **Next.js 16** (App Router, React Server Components, React Compiler) · **React 19** · **TypeScript 5** (strict)
+- **Tailwind CSS v4** · **shadcn/ui** + `@base-ui/react`
+- **Prisma 7** + **PostgreSQL** (`pg` driver adapter)
+- **Zod** validation · **jose** sessions · **Twilio** SMS OTP · **Supabase Storage** (S3) for media
+- **Vitest** for tests · ESLint 9
+
+## Features
+
+- **POS** — photo menu grid with search + category sections, variants/modifiers, split/multi-tender settlement, discounts & comps.
+- **Orders & KDS** — order lifecycle, kitchen ticket board with prep states, Hindi voice alerts, batch table settlement.
+- **Tables** — floor setup with occupancy awareness + printable QR codes for self-ordering.
+- **Guest self-ordering** — public `/order/[username]?table=…` with phone OTP verification, cart persistence, live order status.
+- **Menu** — categories, items, variants, modifiers, images, "86" availability, per-item recipes.
+- **Inventory** — typed stock movements, bulk receive/count, recipe-based auto-depletion, low-stock alerts.
+- **Billing** — GST (CGST/SGST) handling, round-off, thermal-receipt invoices with a customizable footer.
+- **Dashboard** — live day + month analytics (sales, AOV, payment mix, open orders, daily trend), auto-refresh.
+- **Staff** — role-based staff with PIN login for waiter/kitchen; manager phone-OTP / PIN login.
+
+## Getting started
 
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env    # then fill in your values
+
+# 3. Set up the database
+npm run db:migrate      # apply migrations
+npm run db:seed         # optional: seed an admin user
+
+# 4. Run the dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> **Note:** this uses Next.js 16, whose APIs differ from earlier versions (e.g. `middleware.ts` is now `proxy.ts`). See `AGENTS.md` for conventions.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Start the dev server |
+| `npm run build` / `npm start` | Production build / serve |
+| `npm test` | Run the Vitest suite |
+| `npm run db:migrate` | Apply Prisma migrations (dev) |
+| `npm run db:deploy` | Apply migrations (production) |
+| `npm run db:studio` | Open Prisma Studio |
+| `npm run db:seed` | Seed initial data |
 
-To learn more about Next.js, take a look at the following resources:
+## Environment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+All configuration is via environment variables — see [`.env.example`](.env.example) for the full list (database, auth secret, Twilio SMS, Supabase storage, etc.). **Never commit your `.env`** — it is gitignored.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Contributing
 
-## Deploy on Vercel
+Contributions are welcome. Please read `AGENTS.md` (the coding standards / architecture source of truth) before submitting changes, keep the layered architecture intact, and add co-located `*.spec.ts` tests for new services, repositories, actions, hooks, and utilities. Run `npm test` (zero failures) plus typecheck and lint before opening a PR.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[GNU AGPLv3](LICENSE) © 2026 Dharmendra Shah
+
+This project is licensed under the GNU Affero General Public License v3.0. In
+short: you're free to use, modify, and self-host it, but if you run a modified
+version as a network service, you must make your modified source available to
+its users. See [`LICENSE`](LICENSE) for the full terms.
