@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import {
   businessHoursSchema,
+  type UpdateGeolocationInput,
   type UpdateProfileInput,
   type UpdateTaxProfileInput,
 } from "@/lib/validators/restaurant";
@@ -113,6 +114,24 @@ export const setInvoiceFooterNote = async (
   });
 };
 
+/** Save the restaurant's map pin (latitude/longitude). */
+export const updateGeolocation = async (
+  restaurantId: string,
+  input: UpdateGeolocationInput,
+): Promise<void> => {
+  await updateRestaurant(restaurantId, {
+    latitude: input.latitude,
+    longitude: input.longitude,
+  });
+};
+
+/** Remove the restaurant's map pin. */
+export const clearGeolocation = async (
+  restaurantId: string,
+): Promise<void> => {
+  await updateRestaurant(restaurantId, { latitude: null, longitude: null });
+};
+
 /** Username (lazily generated) + self-order flag for building table share links. */
 export const getSelfOrderShareInfo = async (
   restaurantId: string,
@@ -178,6 +197,8 @@ export const getRestaurantProfile = async (
     city: restaurant.city,
     state: restaurant.state,
     postalCode: restaurant.postalCode,
+    latitude: restaurant.latitude,
+    longitude: restaurant.longitude,
     phone: restaurant.phone,
     email: restaurant.email,
     website: restaurant.website,

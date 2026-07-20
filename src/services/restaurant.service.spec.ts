@@ -72,6 +72,8 @@ const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   addressLine2: null,
   state: null,
   postalCode: null,
+  latitude: null,
+  longitude: null,
   website: null,
   instagramUrl: null,
   facebookUrl: null,

@@ -149,6 +149,12 @@ export type UpdateUsernameInput = z.infer<typeof updateUsernameSchema>;
 export const setSelfOrderSchema = z.object({ enabled: z.boolean() });
 export type SetSelfOrderInput = z.infer<typeof setSelfOrderSchema>;
 
+export const updateGeolocationSchema = z.object({
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+});
+export type UpdateGeolocationInput = z.infer<typeof updateGeolocationSchema>;
+
 export const setInvoiceFooterSchema = z.object({
   note: z.string().trim().max(300),
 });

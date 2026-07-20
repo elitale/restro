@@ -10,6 +10,8 @@ vi.mock("@/services/restaurant-settings.service", () => ({
   regenerateUsername: vi.fn(),
   setSelfOrderEnabled: vi.fn(),
   setInvoiceFooterNote: vi.fn(),
+  updateGeolocation: vi.fn(),
+  clearGeolocation: vi.fn(),
 }));
 vi.mock("@/services/restaurant-image.service", () => ({
   addGalleryImage: vi.fn(),
@@ -34,6 +36,8 @@ import {
   updateRestaurantProfile,
   updateTaxProfile,
   updateUsername,
+  updateGeolocation,
+  clearGeolocation,
 } from "@/services/restaurant-settings.service";
 import { addVideoLink, removeVideo } from "@/services/restaurant-video.service";
 import {
@@ -46,6 +50,8 @@ import {
   updateRestaurantProfileAction,
   updateTaxProfileAction,
   updateUsernameAction,
+  updateGeolocationAction,
+  clearGeolocationAction,
 } from "./settings.actions";
 
 describe("updateTaxProfileAction", () => {
@@ -272,5 +278,54 @@ describe("setInvoiceFooterAction", () => {
 
     expect(result.success).toBe(true);
     expect(setInvoiceFooterNote).toHaveBeenCalledWith("res_1", "Visit again!");
+  });
+});
+
+describe("geolocation actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getManagerContextOrNull).mockResolvedValue({
+      userId: "u1",
+      restaurantId: "res_1",
+    });
+  });
+
+  it("updateGeolocationAction delegates the coordinates", async () => {
+    const result = await updateGeolocationAction({
+      latitude: 19.076,
+      longitude: 72.8777,
+    });
+
+    expect(result.success).toBe(true);
+    expect(updateGeolocation).toHaveBeenCalledWith("res_1", {
+      latitude: 19.076,
+      longitude: 72.8777,
+    });
+  });
+
+  it("updateGeolocationAction rejects out-of-range coordinates", async () => {
+    const result = await updateGeolocationAction({
+      latitude: 200,
+      longitude: 0,
+    });
+
+    expect(result.success).toBe(false);
+    expect(updateGeolocation).not.toHaveBeenCalled();
+  });
+
+  it("clearGeolocationAction removes the pin", async () => {
+    const result = await clearGeolocationAction();
+
+    expect(result.success).toBe(true);
+    expect(clearGeolocation).toHaveBeenCalledWith("res_1");
+  });
+
+  it("clearGeolocationAction fails without a restaurant", async () => {
+    vi.mocked(getManagerContextOrNull).mockResolvedValue(null);
+
+    const result = await clearGeolocationAction();
+
+    expect(result.success).toBe(false);
+    expect(clearGeolocation).not.toHaveBeenCalled();
   });
 });

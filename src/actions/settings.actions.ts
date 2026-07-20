@@ -8,6 +8,7 @@ import {
   removeVideoSchema,
   setInvoiceFooterSchema,
   setSelfOrderSchema,
+  updateGeolocationSchema,
   updateProfileSchema,
   updateTaxProfileSchema,
   updateUsernameSchema,
@@ -28,6 +29,8 @@ import {
   regenerateUsername,
   setInvoiceFooterNote,
   setSelfOrderEnabled,
+  updateGeolocation,
+  clearGeolocation,
 } from "@/services/restaurant-settings.service";
 import {
   addVideoLink,
@@ -59,6 +62,11 @@ export const setSelfOrderEnabledAction = withManagerValidation(
 export const setInvoiceFooterAction = withManagerValidation(
   setInvoiceFooterSchema,
   (data, ctx) => setInvoiceFooterNote(ctx.restaurantId, data.note),
+);
+
+export const updateGeolocationAction = withManagerValidation(
+  updateGeolocationSchema,
+  (data, ctx) => updateGeolocation(ctx.restaurantId, data),
 );
 
 export const regenerateUsernameAction = async (): Promise<
@@ -177,3 +185,6 @@ export const removeLogoAction = async (): Promise<ActionResult<void>> =>
 
 export const removeCoverAction = async (): Promise<ActionResult<void>> =>
   runOwned(removeCover);
+
+export const clearGeolocationAction = async (): Promise<ActionResult<void>> =>
+  runOwned(clearGeolocation);

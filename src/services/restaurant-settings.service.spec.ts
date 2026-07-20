@@ -32,10 +32,12 @@ import {
   getSelfOrderShareInfo,
   getServiceOptions,
   getTaxProfile,
+  clearGeolocation,
   regenerateUsername,
   RESTAURANT_NOT_FOUND,
   setInvoiceFooterNote,
   setSelfOrderEnabled,
+  updateGeolocation,
   updateRestaurantProfile,
   updateTaxProfile,
   updateUsername,
@@ -67,6 +69,8 @@ const makeRestaurant = (overrides: Partial<Restaurant> = {}): Restaurant => ({
   addressLine2: null,
   state: null,
   postalCode: null,
+  latitude: null,
+  longitude: null,
   website: null,
   instagramUrl: null,
   facebookUrl: null,
@@ -393,3 +397,39 @@ describe("getSelfOrderShareInfo", () => {
     );
   });
 });
+
+describe("geolocation", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("getRestaurantProfile maps latitude + longitude", async () => {
+    vi.mocked(findRestaurantById).mockResolvedValue(
+      makeRestaurant({ latitude: 19.076, longitude: 72.8777 }),
+    );
+    vi.mocked(findRestaurantImages).mockResolvedValue([]);
+    vi.mocked(findRestaurantVideos).mockResolvedValue([]);
+
+    const profile = await getRestaurantProfile("res_1");
+
+    expect(profile.latitude).toBe(19.076);
+    expect(profile.longitude).toBe(72.8777);
+  });
+
+  it("updateGeolocation persists both coordinates", async () => {
+    await updateGeolocation("res_1", { latitude: 19.076, longitude: 72.8777 });
+
+    expect(updateRestaurant).toHaveBeenCalledWith("res_1", {
+      latitude: 19.076,
+      longitude: 72.8777,
+    });
+  });
+
+  it("clearGeolocation nulls both coordinates", async () => {
+    await clearGeolocation("res_1");
+
+    expect(updateRestaurant).toHaveBeenCalledWith("res_1", {
+      latitude: null,
+      longitude: null,
+    });
+  });
+});
+

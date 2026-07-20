@@ -154,6 +154,8 @@ model Restaurant {
   addressLine2     String?
   state            String?
   postalCode       String?
+  latitude         Float?
+  longitude        Float?
   website          String?
   instagramUrl     String?
   facebookUrl      String?

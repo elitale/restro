@@ -64,6 +64,8 @@ export interface RestaurantProfileDTO {
   readonly city: string | null;
   readonly state: string | null;
   readonly postalCode: string | null;
+  readonly latitude: number | null;
+  readonly longitude: number | null;
   readonly phone: string | null;
   readonly email: string | null;
   readonly website: string | null;
