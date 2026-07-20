@@ -4,7 +4,11 @@
   "private": true,
   "description": "ElitaleRestro — an open-source restaurant management platform (POS, KDS, orders, tables, inventory, billing).",
   "license": "AGPL-3.0-only",
-  "author": "Dharmendra Shah",
+  "author": {
+    "name": "Dharmendra Shah",
+    "email": "soni+opensource@elitale.com",
+    "url": "https://github.com/elitale/restro.git"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
