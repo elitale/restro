@@ -1,5 +1,10 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+
+import {
+  readMobileBearerToken,
+  verifyMobileBearerToken,
+} from "@/lib/mobile-session";
 
 /** Routes reachable without an authenticated session (login + admin preview + public guest ordering). */
 const PUBLIC_ROUTES = ["/login", "/admin", "/order"];
@@ -20,6 +25,16 @@ const STAFF_COOKIE_NAME = "restro_staff";
 /** `/u/[username]/login` (exactly) — the only public page under `/u`. */
 const STAFF_LOGIN_PATTERN = /^\/u\/[^/]+\/login$/;
 
+/**
+ * Mobile API paths that never require a bearer token — anything a client uses
+ * to acquire one. Every other `/api/mobile/*` path must present a valid JWT.
+ */
+const PUBLIC_MOBILE_API_PATHS = [
+  "/api/mobile/auth/request-otp",
+  "/api/mobile/auth/verify-otp",
+  "/api/mobile/auth/verify-pin",
+];
+
 const matchesRoute = (pathname: string, routes: readonly string[]): boolean =>
   routes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
@@ -32,6 +47,28 @@ const hasSession = (request: NextRequest): boolean =>
 
 const hasStaffSession = (request: NextRequest): boolean =>
   Boolean(request.cookies.get(STAFF_COOKIE_NAME)?.value);
+
+const mobileUnauthorized = (): NextResponse =>
+  NextResponse.json(
+    { error: "Missing or invalid bearer token.", code: "UNAUTHORIZED" },
+    { status: 401 },
+  );
+
+/**
+ * Verify `Authorization: Bearer <jwt>` for a protected mobile API path. jose
+ * runs at the edge, so we can do full signature verification here (no DB) and
+ * short-circuit unauthenticated requests before they reach any handler.
+ */
+const handleMobileApi = async (request: NextRequest): Promise<NextResponse> => {
+  if (PUBLIC_MOBILE_API_PATHS.includes(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+  const token = readMobileBearerToken(request.headers);
+  if (!token) return mobileUnauthorized();
+  const payload = await verifyMobileBearerToken(token);
+  if (!payload) return mobileUnauthorized();
+  return NextResponse.next();
+};
 
 /**
  * Route the restaurant-scoped staff area (`/u/[username]/…`) on its own staff
@@ -53,8 +90,13 @@ const handleStaffArea = (request: NextRequest): NextResponse => {
     : NextResponse.redirect(new URL(`/u/${username}/login`, request.nextUrl));
 };
 
-export function proxy(request: NextRequest): NextResponse {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
+
+  // Mobile API auth — Bearer JWT gate; public endpoints (login) allow-listed.
+  if (pathname.startsWith("/api/mobile/")) {
+    return handleMobileApi(request);
+  }
 
   // The staff area runs on its own session, gated separately from the manager.
   if (pathname.startsWith("/u/")) {
@@ -78,7 +120,10 @@ export function proxy(request: NextRequest): NextResponse {
   return NextResponse.next();
 }
 
-// Run on all routes except API, Next internals, and static asset files.
+// Run on pages + mobile API. Other `/api/*` routes are excluded from proxy.
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|.*\\..*).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|.*\\..*).*)",
+    "/api/mobile/:path*",
+  ],
 };

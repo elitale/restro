@@ -12,13 +12,14 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import {
-  createStaff,
-  findStaffByRestaurant,
-  recordStaffLoginFailure,
-  resetStaffLoginCounters,
-  softDeleteStaff,
-  updateStaffPin,
-  type StaffWriteData,
+    createStaff,
+    findActiveStaffByPhone,
+    findStaffByRestaurant,
+    recordStaffLoginFailure,
+    resetStaffLoginCounters,
+    softDeleteStaff,
+    updateStaffPin,
+    type StaffWriteData,
 } from "./staff.repository";
 
 const data: StaffWriteData = {
@@ -112,6 +113,21 @@ describe("staffRepository", () => {
     expect(update).toHaveBeenCalledWith({
       where: { id: "st1" },
       data: { loginFailedAttempts: 0, loginLockedUntil: null },
+    });
+  });
+
+  it("findActiveStaffByPhone excludes deleted + non-active, ordered by updatedAt desc", async () => {
+    findMany.mockResolvedValue([]);
+
+    await findActiveStaffByPhone("+919876543210");
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        phone: "+919876543210",
+        deletedAt: null,
+        status: "ACTIVE",
+      },
+      orderBy: { updatedAt: "desc" },
     });
   });
 });

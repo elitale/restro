@@ -77,8 +77,7 @@ export const resetStaffLoginCounters = (id: string): Promise<Staff> =>
 export const setStaffPhoto = (
   id: string,
   photoUrl: string | null,
-): Promise<Staff> =>
-  prisma.staff.update({ where: { id }, data: { photoUrl } });
+): Promise<Staff> => prisma.staff.update({ where: { id }, data: { photoUrl } });
 
 export const findStaffById = (id: string): Promise<Staff | null> =>
   prisma.staff.findUnique({ where: { id } });
@@ -91,10 +90,20 @@ export const findStaffByEmployeeCode = (
     where: { restaurantId_employeeCode: { restaurantId, employeeCode } },
   });
 
-export const findStaffByRestaurant = (
-  restaurantId: string,
-): Promise<Staff[]> =>
+export const findStaffByRestaurant = (restaurantId: string): Promise<Staff[]> =>
   prisma.staff.findMany({
     where: { restaurantId, deletedAt: null },
     orderBy: [{ role: "asc" }, { name: "asc" }],
+  });
+
+/**
+ * Find every active (non-deleted, ACTIVE status) staff row that matches the
+ * given phone across all restaurants. Returns an array so callers can detect
+ * the multi-restaurant case (a phone that owns staff rows in more than one
+ * restaurant) and prompt the user to disambiguate.
+ */
+export const findActiveStaffByPhone = (phone: string): Promise<Staff[]> =>
+  prisma.staff.findMany({
+    where: { phone, deletedAt: null, status: "ACTIVE" },
+    orderBy: { updatedAt: "desc" },
   });
