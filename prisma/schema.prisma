@@ -669,3 +669,24 @@ model Staff {
   @@unique([restaurantId, employeeCode])
   @@index([restaurantId])
 }
+
+/// A registered Expo push token for a mobile client device. One row per
+/// (subjectKind, subjectId, deviceId). Refreshed on every app-open — the
+/// server upserts by the unique triple.
+model PushToken {
+  id            String   @id @default(cuid())
+  subjectKind   String   // "manager" | "staff"
+  subjectId     String   // User.id or Staff.id (application-managed FK; polymorphic)
+  restaurantId  String?
+  deviceId      String
+  expoPushToken String
+  platform      String   // "ios" | "android"
+  appVersion    String
+  locale        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([subjectKind, subjectId, deviceId])
+  @@index([subjectKind, subjectId])
+  @@index([restaurantId])
+}

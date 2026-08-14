@@ -14,6 +14,14 @@ import {
     MOBILE_PIN_NOT_SET,
     MOBILE_USER_NOT_FOUND,
 } from "@/services/mobile-auth.service";
+import {
+    MOBILE_ORDER_DEDUPE,
+    MOBILE_ORDER_FORBIDDEN_ROLE,
+    MOBILE_ORDER_INVALID_TRANSITION,
+    MOBILE_ORDER_NO_RESTAURANT,
+    MOBILE_ORDER_NOT_ALLOWED,
+    MOBILE_ORDER_NOT_FOUND,
+} from "@/services/mobile-orders.service";
 
 const fieldErrorsFromZod = (error: ZodError): Record<string, string[]> => {
   const fieldErrors: Record<string, string[]> = {};
@@ -76,9 +84,39 @@ const errorMap: Record<
     code: "PIN_NOT_SET",
     message: "This account has no PIN yet. Sign in with a code.",
   },
+  [MOBILE_ORDER_NOT_FOUND]: {
+    status: 404,
+    code: "ORDER_NOT_FOUND",
+    message: "That order does not exist.",
+  },
+  [MOBILE_ORDER_NOT_ALLOWED]: {
+    status: 403,
+    code: "NOT_ALLOWED",
+    message: "You cannot access this order.",
+  },
+  [MOBILE_ORDER_INVALID_TRANSITION]: {
+    status: 409,
+    code: "INVALID_TRANSITION",
+    message: "The order is not in a state that allows this action.",
+  },
+  [MOBILE_ORDER_NO_RESTAURANT]: {
+    status: 403,
+    code: "NO_RESTAURANT",
+    message: "No restaurant is linked to your account.",
+  },
+  [MOBILE_ORDER_DEDUPE]: {
+    status: 200,
+    code: "DEDUPE_COLLISION",
+    message: "This request was already applied.",
+  },
+  [MOBILE_ORDER_FORBIDDEN_ROLE]: {
+    status: 403,
+    code: "FORBIDDEN_ROLE",
+    message: "Your role cannot perform this action. Ask a manager.",
+  },
 };
 
-const toHttpError = (err: unknown): HttpError => {
+export const toMobileHttpError = (err: unknown): HttpError => {
   if (err instanceof HttpError) return err;
   if (err instanceof Error) {
     const entry = errorMap[err.message];
@@ -88,6 +126,7 @@ const toHttpError = (err: unknown): HttpError => {
   }
   return new HttpError(500, "INTERNAL", "Something went wrong.");
 };
+const toHttpError = toMobileHttpError;
 
 /**
  * Wrap a mobile POST endpoint: parse JSON body, validate with Zod, call the
