@@ -1,3 +1,4 @@
+import { detectAllergiesInText } from "@/lib/allergies";
 import type { MobileTokenPayload } from "@/lib/mobile-session";
 import { prisma } from "@/lib/prisma";
 import type {
@@ -17,6 +18,8 @@ import {
     type OrderLineWriteData,
     type OrderWithRelations,
 } from "@/repositories/order.repository";
+
+import { sendToRoles } from "./push-dispatch.service";
 
 // ---------------------------------------------------------------------------
 // Error constants \u2014 mapped to HTTP in `lib/mobile-api.ts`.
@@ -227,6 +230,57 @@ const requireRestaurant = (auth: MobileTokenPayload): string => {
   return auth.restaurantId;
 };
 
+const summariseItems = (order: OrderWithRelations): string =>
+  order.items
+    .filter((i) => i.state !== "VOID")
+    .map((i) => `${i.quantity}\u00D7 ${i.name}`)
+    .join(" \u00B7 ");
+
+const dispatchNewOrderPush = async (
+  order: OrderWithRelations,
+): Promise<void> => {
+  const label = order.tableLabel ?? `Order #${order.orderNumber}`;
+  const allergies = detectAllergiesInText(order.note);
+  const suffix =
+    allergies.length > 0 ? ` \u00B7 \u26A0 ${allergies.join(", ")}` : "";
+  await sendToRoles(order.restaurantId, ["KITCHEN"], {
+    title: `New order \u2014 ${label}`,
+    body: summariseItems(order) + suffix,
+    channelId: "new-orders",
+    categoryId: "newOrder",
+    data: {
+      type: "new-order",
+      orderId: order.id,
+      url: `elitalerestaurantstaff:///orders/${order.id}`,
+    },
+  });
+};
+
+const dispatchFoodReadyPush = async (
+  order: OrderWithRelations,
+): Promise<void> => {
+  const label = order.tableLabel ?? `Order #${order.orderNumber}`;
+  const allergies = detectAllergiesInText(order.note);
+  const suffix =
+    allergies.length > 0 ? ` \u00B7 \u26A0 ${allergies.join(", ")}` : "";
+  // Alert waiters + managers so the runner can go NOW.
+  await sendToRoles(
+    order.restaurantId,
+    ["WAITER", "MANAGER", "MANAGEMENT", "ADMIN", "SUPER_ADMIN"],
+    {
+      title: `${label} \u00B7 Ready`,
+      body: summariseItems(order) + suffix,
+      channelId: "food-ready",
+      categoryId: "foodReady",
+      data: {
+        type: "food-ready",
+        orderId: order.id,
+        url: `elitalerestaurantstaff:///orders/${order.id}`,
+      },
+    },
+  );
+};
+
 export interface ListMobileOrdersOptions {
   readonly status?: "live" | "settled" | "all";
 }
@@ -323,6 +377,12 @@ export const createMobileOrder = async (
     placedByStaffId: auth.kind === "staff" ? auth.subjectId : null,
     items: input.items.map(buildLine),
   });
+
+  // Fire-and-forget notification to the kitchen line. Never blocks the write.
+  void dispatchNewOrderPush(created).catch((e) =>
+    console.warn("[mobile-orders] new-order push failed", e),
+  );
+
   return toMobileOrderDto(created);
 };
 
@@ -445,6 +505,12 @@ export const dispatchMobileOrderAction = async (
     }
     case "mark-ready": {
       await advanceLineStates(orderId, "PREPARING", "PREPARED");
+      const readyOrder = await findOrderById(orderId);
+      if (readyOrder) {
+        void dispatchFoodReadyPush(readyOrder).catch((e) =>
+          console.warn("[mobile-orders] food-ready push failed", e),
+        );
+      }
       break;
     }
     case "mark-served": {
