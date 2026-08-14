@@ -20,7 +20,6 @@ export const mobileOrderActionSchema = z.enum([
   "mark-ready",
   "mark-served",
   "recall",
-  "escalate",
   "approve",
 ]);
 export type MobileOrderAction = z.infer<typeof mobileOrderActionSchema>;

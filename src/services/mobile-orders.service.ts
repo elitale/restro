@@ -82,7 +82,6 @@ export interface MobileOrderDto {
 const WAITER_ACTIONS = new Set<MobileOrderAction>([
   "acknowledge",
   "mark-served",
-  "escalate",
 ]);
 const KITCHEN_ACTIONS = new Set<MobileOrderAction>([
   "start-cooking",
@@ -490,7 +489,7 @@ export const dispatchMobileOrderAction = async (
   if (!existing || existing.restaurantId !== restaurantId) {
     throw new Error(MOBILE_ORDER_NOT_FOUND);
   }
-  if (existing.status !== "OPEN" && action !== "escalate") {
+  if (existing.status !== "OPEN") {
     throw new Error(MOBILE_ORDER_INVALID_TRANSITION);
   }
 
@@ -532,13 +531,6 @@ export const dispatchMobileOrderAction = async (
     }
     case "recall": {
       await advanceLineStates(orderId, "SERVED", "PREPARED");
-      break;
-    }
-    case "escalate": {
-      // No state change; recorded via reason on the audit log (Phase 1).
-      console.log(
-        `[mobile-orders] escalate ord=${orderId} by=${auth.subjectId} reason=${reason ?? ""}`,
-      );
       break;
     }
     case "approve": {
