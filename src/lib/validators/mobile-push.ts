@@ -7,7 +7,8 @@ export const mobilePushTokenSchema = z.object({
     .min(4)
     .max(200)
     .refine(
-      (v) => v.startsWith("ExponentPushToken[") || v.startsWith("ExpoPushToken["),
+      (v) =>
+        v.startsWith("ExponentPushToken[") || v.startsWith("ExpoPushToken["),
       { message: "Not an Expo push token" },
     ),
   deviceId: z.string().trim().min(4).max(120),

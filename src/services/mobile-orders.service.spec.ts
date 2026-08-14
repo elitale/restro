@@ -47,7 +47,8 @@ const baseOrder = (
       variantId: null,
       name: "Paneer tikka",
       variantName: null,
-      unitPrice: 320 as unknown as OrderWithRelations["items"][number]["unitPrice"],
+      unitPrice:
+        320 as unknown as OrderWithRelations["items"][number]["unitPrice"],
       quantity: 2,
       lineNote: null,
       taxRate: 0 as unknown as OrderWithRelations["items"][number]["taxRate"],
@@ -91,9 +92,7 @@ describe("toMobileOrderDto", () => {
   it("derives status=preparing when any item is PREPARING", () => {
     const dto = toMobileOrderDto(
       baseOrder({
-        items: [
-          { ...baseOrder().items[0], state: "PREPARING" },
-        ],
+        items: [{ ...baseOrder().items[0], state: "PREPARING" }],
       }),
     );
     expect(dto.status).toBe("preparing");
@@ -102,9 +101,7 @@ describe("toMobileOrderDto", () => {
   it("derives status=ready when every item is PREPARED", () => {
     const dto = toMobileOrderDto(
       baseOrder({
-        items: [
-          { ...baseOrder().items[0], state: "PREPARED" },
-        ],
+        items: [{ ...baseOrder().items[0], state: "PREPARED" }],
       }),
     );
     expect(dto.status).toBe("ready");

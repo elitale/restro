@@ -1,22 +1,22 @@
 import type { MobileTokenPayload } from "@/lib/mobile-session";
+import { prisma } from "@/lib/prisma";
 import type {
-  MobileCreateOrderInput,
-  MobileEditOrderInput,
-  MobileOrderAction,
-  MobileOrderChannel,
+    MobileCreateOrderInput,
+    MobileEditOrderInput,
+    MobileOrderAction,
+    MobileOrderChannel,
 } from "@/lib/validators/mobile-orders";
 import {
-  addOrderItems,
-  advanceLineStates,
-  createOrder,
-  findOrderById,
-  findOrdersByRestaurant,
-  maxOrderNumber,
-  ORDER_INCLUDE,
-  type OrderLineWriteData,
-  type OrderWithRelations,
+    addOrderItems,
+    advanceLineStates,
+    createOrder,
+    findOrderById,
+    findOrdersByRestaurant,
+    maxOrderNumber,
+    ORDER_INCLUDE,
+    type OrderLineWriteData,
+    type OrderWithRelations,
 } from "@/repositories/order.repository";
-import { prisma } from "@/lib/prisma";
 
 // ---------------------------------------------------------------------------
 // Error constants \u2014 mapped to HTTP in `lib/mobile-api.ts`.
@@ -24,7 +24,8 @@ import { prisma } from "@/lib/prisma";
 
 export const MOBILE_ORDER_NOT_FOUND = "MOBILE_ORDER_NOT_FOUND";
 export const MOBILE_ORDER_NOT_ALLOWED = "MOBILE_ORDER_NOT_ALLOWED";
-export const MOBILE_ORDER_INVALID_TRANSITION = "MOBILE_ORDER_INVALID_TRANSITION";
+export const MOBILE_ORDER_INVALID_TRANSITION =
+  "MOBILE_ORDER_INVALID_TRANSITION";
 export const MOBILE_ORDER_NO_RESTAURANT = "MOBILE_ORDER_NO_RESTAURANT";
 export const MOBILE_ORDER_DEDUPE = "MOBILE_ORDER_DEDUPE";
 export const MOBILE_ORDER_FORBIDDEN_ROLE = "MOBILE_ORDER_FORBIDDEN_ROLE";
@@ -85,12 +86,14 @@ const KITCHEN_ACTIONS = new Set<MobileOrderAction>([
   "mark-ready",
   "recall",
 ]);
-const MANAGER_ROLES = new Set(["MANAGER", "ADMIN", "SUPER_ADMIN", "MANAGEMENT"]);
+const MANAGER_ROLES = new Set([
+  "MANAGER",
+  "ADMIN",
+  "SUPER_ADMIN",
+  "MANAGEMENT",
+]);
 
-const isActionAllowed = (
-  role: string,
-  action: MobileOrderAction,
-): boolean => {
+const isActionAllowed = (role: string, action: MobileOrderAction): boolean => {
   if (MANAGER_ROLES.has(role)) return true;
   if (role === "WAITER") return WAITER_ACTIONS.has(action);
   if (role === "KITCHEN") return KITCHEN_ACTIONS.has(action);
@@ -107,7 +110,10 @@ const CHANNEL_TO_MOBILE: Record<string, MobileOrderChannel> = {
   DELIVERY: "delivery",
 };
 
-const MOBILE_TO_CHANNEL: Record<MobileOrderChannel, "DINE_IN" | "TAKEAWAY" | "DELIVERY"> = {
+const MOBILE_TO_CHANNEL: Record<
+  MobileOrderChannel,
+  "DINE_IN" | "TAKEAWAY" | "DELIVERY"
+> = {
   "dine-in": "DINE_IN",
   takeaway: "TAKEAWAY",
   delivery: "DELIVERY",
@@ -119,13 +125,19 @@ const MOBILE_TO_CHANNEL: Record<MobileOrderChannel, "DINE_IN" | "TAKEAWAY" | "DE
 const deriveMobileStatus = (order: OrderWithRelations): MobileOrderStatus => {
   if (order.status === "COMPLETED") return "settled";
   if (order.status === "VOID") return "settled";
-  const states = order.items.filter((i) => i.state !== "VOID").map((i) => i.state);
+  const states = order.items
+    .filter((i) => i.state !== "VOID")
+    .map((i) => i.state);
   if (states.length === 0) return "new";
   if (states.every((s) => s === "SERVED")) return "served";
-  if (states.every((s) => s === "PREPARED" || s === "SERVED") && states.includes("PREPARED")) {
+  if (
+    states.every((s) => s === "PREPARED" || s === "SERVED") &&
+    states.includes("PREPARED")
+  ) {
     return "ready";
   }
-  if (states.some((s) => s === "PREPARING" || s === "FIRED")) return "preparing";
+  if (states.some((s) => s === "PREPARING" || s === "FIRED"))
+    return "preparing";
   return "new";
 };
 
@@ -151,7 +163,8 @@ const derivePriority = (
   return "normal";
 };
 
-const formatRupees = (n: number): string => "\u20B9" + n.toLocaleString("en-IN");
+const formatRupees = (n: number): string =>
+  "\u20B9" + n.toLocaleString("en-IN");
 
 const decimalToNumber = (v: unknown): number => {
   if (typeof v === "number") return v;
@@ -162,10 +175,13 @@ const decimalToNumber = (v: unknown): number => {
   return 0;
 };
 
-const mapItemModifiers = (item: OrderWithRelations["items"][number]): string[] =>
-  item.modifiers.map((m) => m.name);
+const mapItemModifiers = (
+  item: OrderWithRelations["items"][number],
+): string[] => item.modifiers.map((m) => m.name);
 
-const mapItem = (item: OrderWithRelations["items"][number]): MobileOrderItemDto => ({
+const mapItem = (
+  item: OrderWithRelations["items"][number],
+): MobileOrderItemDto => ({
   id: item.id,
   name: item.name,
   quantity: item.quantity,
@@ -387,7 +403,9 @@ export const editMobileOrder = async (
       (max, i) => (i.sortOrder > max ? i.sortOrder : max),
       0,
     );
-    const lines = input.addItems.map((it, i) => buildLine(it, currentMax + 1 + i));
+    const lines = input.addItems.map((it, i) =>
+      buildLine(it, currentMax + 1 + i),
+    );
     await addOrderItems(orderId, lines);
   }
 
@@ -435,7 +453,9 @@ export const dispatchMobileOrderAction = async (
       const refreshed = await findOrderById(orderId);
       if (
         refreshed &&
-        refreshed.items.filter((i) => i.state !== "VOID").every((i) => i.state === "SERVED")
+        refreshed.items
+          .filter((i) => i.state !== "VOID")
+          .every((i) => i.state === "SERVED")
       ) {
         await prisma.order.update({
           where: { id: orderId },

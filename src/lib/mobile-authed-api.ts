@@ -57,10 +57,7 @@ export const withMobileAuthJsonRoute = <TSchema extends ZodType, TResult>(
 
 // GET-style wrapper: auth-required, no body validation.
 export const withMobileAuthGetRoute = <TResult>(
-  handler: (
-    auth: MobileTokenPayload,
-    req: NextRequest,
-  ) => Promise<TResult>,
+  handler: (auth: MobileTokenPayload, req: NextRequest) => Promise<TResult>,
 ) => {
   return async (req: NextRequest): Promise<Response> => {
     const auth = await getMobileAuthOrNull(req);
